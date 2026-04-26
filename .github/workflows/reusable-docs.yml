@@ -17,6 +17,10 @@ on:
         required: false
         type: string
         default: build/docs
+      doxygen-version:
+        required: false
+        type: string
+        default: "1.16.1"
 
 jobs:
   docs:
@@ -26,8 +30,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install Doxygen
-        run: sudo apt-get update && sudo apt-get install -y doxygen graphviz
+      - uses: ssciwr/doxygen-install@v2
+        with:
+          version: ${{ inputs.doxygen-version }}
+
+      - name: Install Graphviz
+        run: sudo apt-get update && sudo apt-get install -y graphviz
 
       - name: Clone docs-shared
         run: |
