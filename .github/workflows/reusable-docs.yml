@@ -1,0 +1,55 @@
+name: reusable-docs
+
+on:
+  workflow_call:
+    inputs:
+      repository:
+        required: true
+        type: string
+      target:
+        required: true
+        type: string
+      doxygen-config:
+        required: false
+        type: string
+        default: Doxyfile
+      output-dir:
+        required: false
+        type: string
+        default: build/docs
+
+jobs:
+  docs:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Doxygen
+        run: sudo apt-get update && sudo apt-get install -y doxygen graphviz
+
+      - name: Clone docs-shared
+        run: |
+          git clone https://github.com/liara-engine/docs-shared.git
+
+      - name: Inject shared resources
+        run: |
+          cp -r docs-shared/* ./
+
+      - name: Generate documentation
+        run: |
+          doxygen ${{ inputs.doxygen-config }}
+
+      - name: Prepare deployment directory
+        run: |
+          mkdir -p deploy/${{ inputs.target }}
+            cp -r ${{ inputs.output-dir }}/* deploy/${{ inputs.target }}/
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          publish_dir: deploy
+          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          keep_files: true
