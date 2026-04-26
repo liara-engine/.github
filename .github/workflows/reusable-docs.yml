@@ -37,6 +37,10 @@ jobs:
         run: |
           cp -r docs-shared/* ./
 
+      - name: Prepare output directory
+        run: |
+          mkdir -p ${{ inputs.output-dir }}
+
       - name: Generate documentation
         run: |
           doxygen ${{ inputs.doxygen-config }}
