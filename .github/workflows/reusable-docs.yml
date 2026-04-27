@@ -53,6 +53,10 @@ jobs:
         run: |
           doxygen ${{ inputs.doxygen-config }}
 
+      - name: Copy assets to output directory
+        run: |
+          cp -r assets/* ${{ inputs.output-dir }}/
+
       - name: Prepare deployment directory
         run: |
           mkdir -p deploy/${{ inputs.target }}
