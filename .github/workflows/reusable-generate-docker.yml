@@ -17,6 +17,10 @@ on:
         required: false
         type: string
         default: Dockerfile
+      tag-latest:
+        required: false
+        type: boolean
+        default: true
 
 env:
   REGISTRY: ghcr.io
@@ -44,12 +48,22 @@ jobs:
         with:
           driver: docker-container
 
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ inputs.image-name }}
+          tags: |
+            type=raw,value=${{ inputs.image-tag }}
+            type=raw,value=latest,enable=${{ inputs.tag-latest }}
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ inputs.dockerfile-path }}
           push: true
-          tags: ${{ env.REGISTRY }}/${{ inputs.image-name }}:${{ inputs.image-tag }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,ref=${{ env.REGISTRY }}/${{ inputs.image-name }}:cache
           cache-to: type=gha,ref=${{ env.REGISTRY }}/${{ inputs.image-name }}:cache,mode=max
