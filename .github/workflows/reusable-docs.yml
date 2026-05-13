@@ -135,6 +135,7 @@ jobs:
           cp -a generated-docs/* "$output_path/"
 
       - run: |
+          cd output-repository
           git add .
           
           if git diff --cached --quiet; then
