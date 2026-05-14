@@ -128,7 +128,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: manifest
-          path: manifest.json
+          path: manifest
 
       - run: |
           repo_name=$(basename $GITHUB_REPOSITORY)
@@ -146,7 +146,7 @@ jobs:
             fi
           fi
           
-          cp manifest.json output-repository/$repo_name/manifest.json
+          cp manifest/manifest.json output-repository/$repo_name/manifest.json
           
           mkdir -p "$output_path"
           cp -a generated-docs/* "$output_path/"
