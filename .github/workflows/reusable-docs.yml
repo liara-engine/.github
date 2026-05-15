@@ -161,14 +161,15 @@ jobs:
               exit 1
             fi
           fi
+
+          mkdir -p "$output_path"
           
           if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
             cp manifest/manifest.json output-repository/$repo_name/manifest.json
           else
             cp manifest/manifest.json output-repository/hub/manifest.json
           fi
-          
-          mkdir -p "$output_path"
+
           cp -a generated-docs/* "$output_path/"
 
       - run: |
