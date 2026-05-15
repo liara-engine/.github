@@ -27,6 +27,16 @@ on:
         type: boolean
         default: false
 
+      additional-dir-to-deploy:
+        required: false
+        type: string
+        default: ""
+
+      deploy-as-hub:
+        required: false
+        type: boolean
+        default: false
+
     secrets:
       ghcr-token:
         required: true
@@ -59,6 +69,7 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}:/src \
             -v ${{ github.workspace }}/generated-docs:/docs \
+            -e ADDITIONAL_DIRECTORIES_TO_OUTPUT="${{ inputs.additional-dir-to-deploy }}" \
             ${{ inputs.image }}
 
       - run: |
@@ -132,7 +143,12 @@ jobs:
 
       - run: |
           repo_name=$(basename $GITHUB_REPOSITORY)
-          output_path=output-repository/$repo_name/${{ inputs.deployment-version }}
+          
+          if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
+            output_path=output-repository/$repo_name/${{ inputs.deployment-version }}
+          else
+            output_path=output-repository/hub
+          fi
           
           echo "Publishing docs to: $output_path"
           
