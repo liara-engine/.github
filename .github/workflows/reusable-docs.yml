@@ -126,6 +126,8 @@ jobs:
               git checkout --orphan "${{ inputs.output-branch }}"
               git rm -rf . || true
               echo "# Documentation" > README.md
+              mkdir -p site
+              echo "<DOCTYPE html><html><head><title>Documentation</title></head><body><h1>Documentation</h1><p>This branch is used to host generated documentation.</p></body></html>" > site/index.html
               git add README.md
               git commit -m "Initialize documentation branch"
               git push origin "${{ inputs.output-branch }}"
@@ -145,9 +147,9 @@ jobs:
           repo_name=$(basename $GITHUB_REPOSITORY)
           
           if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
-            output_path=output-repository/$repo_name/${{ inputs.deployment-version }}
+            output_path=output-repository/site/$repo_name/${{ inputs.deployment-version }}
           else
-            output_path=output-repository/hub
+            output_path=output-repository/site/hub
           fi
           
           echo "Publishing docs to: $output_path"
@@ -165,9 +167,9 @@ jobs:
           mkdir -p "$output_path"
           
           if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
-            cp manifest/manifest.json output-repository/$repo_name/manifest.json
+            cp manifest/manifest.json output-repository/site/$repo_name/manifest.json
           else
-            cp manifest/manifest.json output-repository/hub/manifest.json
+            cp manifest/manifest.json output-repository/site/hub/manifest.json
           fi
 
           cp -a generated-docs/* "$output_path/"
