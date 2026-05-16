@@ -156,8 +156,17 @@ jobs:
           
           if [ -d "$output_path" ] && [ "${{ inputs.erase-existing-output }}" = "true" ]; then
             if [[ "$output_path" == output-repository/* ]]; then
-              rm -rf "$output_path"
-              echo "Existing output erased"
+              if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
+                rm -rf "$output_path"
+                echo "Existing output erased"
+              else
+                # Hub is deployed to site root, so we need to be careful not to delete non-hub files
+                # The only files we wante to delete are the ones in /css, /js, and the ones directly in the root of site
+                find "$output_path" -maxdepth 1 -type f -delete
+                find "$output_path/css" -type f -delete
+                find "$output_path/js" -type f -delete
+                echo "Existing hub output erased"
+              fi
             else
               echo "Invalid output path"
               exit 1
