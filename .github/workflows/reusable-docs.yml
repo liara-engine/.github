@@ -147,7 +147,9 @@ jobs:
           repo_name=$(basename $GITHUB_REPOSITORY)
           
           if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
-            output_path=output-repository/site/$repo_name/${{ inputs.deployment-version }}
+            version=${{ inputs.deployment-version }}
+            version=${version#v}
+            output_path=output-repository/site/$repo_name/$version
           else
             output_path=output-repository/site
           fi
