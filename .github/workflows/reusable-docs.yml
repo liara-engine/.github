@@ -149,7 +149,7 @@ jobs:
           if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
             output_path=output-repository/site/$repo_name/${{ inputs.deployment-version }}
           else
-            output_path=output-repository/site/hub
+            output_path=output-repository/site
           fi
           
           echo "Publishing docs to: $output_path"
@@ -168,11 +168,11 @@ jobs:
           
           if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
             cp manifest/manifest.json output-repository/site/$repo_name/manifest.json
+            cp -a generated-docs/* "$output_path/"
           else
-            cp manifest/manifest.json output-repository/site/hub/manifest.json
+            cp manifest/manifest.json output-repository/site/manifest.json
+            cp -a generated-docs/hub/* "$output_path/"
           fi
-
-          cp -a generated-docs/* "$output_path/"
 
       - run: |
           cd output-repository
