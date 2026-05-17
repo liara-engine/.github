@@ -45,156 +45,26 @@ on:
         required: true
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
+  use-build:
+    uses: ./.github/.github/workflows/reusable-build-docs.yml@v0
+    with:
+      image: ${{ inputs.image }}
+      additional-dir-to-deploy: ${{ inputs.additional-dir-to-deploy }}
 
-    permissions:
-      contents: read
-      packages: read
+    secrets:
+      ghcr-token: ${{ secrets.ghcr-token }}
+      push-token: ${{ secrets.push-token }}
 
-    steps:
-      - uses: actions/checkout@v6
+  use-publish:
+    needs: use-build
+    uses: ./.github/workflows/reusable-deploy-docs.yml
+    with:
+      output-repository: ${{ inputs.output-repository }}
+      output-branch: ${{ inputs.output-branch }}
+      deployment-version: ${{ inputs.deployment-version }}
+      erase-existing-output: ${{ inputs.erase-existing-output }}
+      deploy-as-hub: ${{ inputs.deploy-as-hub }}
 
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - run: docker pull ${{ inputs.image }}
-
-      - run: mkdir -p generated-docs
-
-      - run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/src \
-            -v ${{ github.workspace }}/generated-docs:/docs \
-            -e ADDITIONAL_DIRECTORIES_TO_OUTPUT="${{ inputs.additional-dir-to-deploy }}" \
-            ${{ inputs.image }}
-
-      - run: |
-          if [ -f "generated-docs/manifest.json" ]; then
-            mv generated-docs/manifest.json manifest.json
-          fi
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: manifest
-          path: manifest.json
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: docs
-          path: generated-docs
-
-  publish:
-    needs: build
-
-    runs-on: ubuntu-24.04
-
-    permissions:
-      contents: write
-
-    concurrency:
-      group: docs-publish-${{ github.repository }}
-      cancel-in-progress: false
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          repository: ${{ inputs.output-repository }}
-          token: ${{ secrets.push-token }}
-          path: output-repository
-          fetch-depth: '0'
-
-      - run: |
-          cd output-repository
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          cd ..
-
-      - name: Prepare output branch
-        run: |
-          cd output-repository
-
-          if git ls-remote --exit-code --heads origin "${{ inputs.output-branch }}"; then
-              echo "Branch exists"
-              git checkout "${{ inputs.output-branch }}"
-              git pull origin "${{ inputs.output-branch }}"
-          else
-              echo "Branch does not exist, creating it"
-              git checkout --orphan "${{ inputs.output-branch }}"
-              git rm -rf . || true
-              echo "# Documentation" > README.md
-              mkdir -p site
-              echo "<DOCTYPE html><html><head><title>Documentation</title></head><body><h1>Documentation</h1><p>This branch is used to host generated documentation.</p></body></html>" > site/index.html
-              git add README.md
-              git commit -m "Initialize documentation branch"
-              git push origin "${{ inputs.output-branch }}"
-          fi
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: docs
-          path: generated-docs
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: manifest
-          path: manifest
-
-      - run: |
-          repo_name=$(basename $GITHUB_REPOSITORY)
-          
-          if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
-            version=${{ inputs.deployment-version }}
-            version=${version#v}
-            output_path=output-repository/site/$repo_name/$version
-          else
-            output_path=output-repository/site
-          fi
-          
-          echo "Publishing docs to: $output_path"
-          
-          if [ -d "$output_path" ] && [ "${{ inputs.erase-existing-output }}" = "true" ]; then
-            if [[ "$output_path" == output-repository/* ]]; then
-              if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
-                rm -rf "$output_path"
-                echo "Existing output erased"
-              else
-                # Hub is deployed to site root, so we need to be careful not to delete non-hub files
-                # The only files we wante to delete are the ones in /css, /js, and the ones directly in the root of site
-                find "$output_path" -maxdepth 1 -type f -delete
-                find "$output_path/css" -type f -delete
-                find "$output_path/js" -type f -delete
-                echo "Existing hub output erased"
-              fi
-            else
-              echo "Invalid output path"
-              exit 1
-            fi
-          fi
-
-          mkdir -p "$output_path"
-          
-          if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
-            cp manifest/manifest.json output-repository/site/$repo_name/manifest.json
-            cp -a generated-docs/* "$output_path/"
-          else
-            cp manifest/manifest.json output-repository/site/manifest.json
-            cp -a generated-docs/hub/* "$output_path/"
-          fi
-
-      - run: |
-          cd output-repository
-          git add .
-          
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-          
-          git commit -m "Update generated docs for $GITHUB_REPOSITORY"
-          
-          git pull --rebase origin ${{ inputs.output-branch }} || echo "No changes to pull"
-          git push origin ${{ inputs.output-branch }}
+    secrets:
+      ghcr-token: ${{ secrets.ghcr-token }}
+      push-token: ${{ secrets.push-token }}
