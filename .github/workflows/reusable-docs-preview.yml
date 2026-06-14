@@ -1,0 +1,97 @@
+name: reusable-docs-preview
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+      output-repository:
+        required: true
+        type: string
+      output-branch:
+        required: false
+        type: string
+        default: cloudflare-pages
+      base-url:
+        required: false
+        type: string
+        default: https://liara-engine.liara-engine-documentation.workers.dev
+
+    secrets:
+      ghcr-token:
+        required: true
+      push-token:
+        required: true
+
+jobs:
+  build:
+    uses: liara-engine/.github/.github/workflows/reusable-build-docs.yml@v0
+    with:
+      image: ${{ inputs.image }}
+    secrets:
+      ghcr-token: ${{ secrets.ghcr-token }}
+      push-token: ${{ secrets.push-token }}
+
+  publish-preview:
+    needs: build
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    concurrency:
+      group: docs-publish-${{ inputs.output-repository }}-${{ github.repository }}
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.output-repository }}
+          ref: ${{ inputs.output-branch }}
+          token: ${{ secrets.push-token }}
+          path: output-repository
+          fetch-depth: '0'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: docs
+          path: generated-docs
+
+      - name: Publish to preview path
+        run: |
+          set -euo pipefail
+          repo_name="${GITHUB_REPOSITORY##*/}"
+          preview_id="pr-${{ github.event.number }}"
+          output_path="output-repository/site/${repo_name}/${preview_id}"
+
+          rm -rf "$output_path"
+          mkdir -p "$output_path"
+          cp -a generated-docs/* "$output_path/"
+
+      - name: Commit & push
+        run: |
+          set -euo pipefail
+          cd output-repository
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Docs preview pr-${{ github.event.number }} for ${GITHUB_REPOSITORY}"
+          git pull --rebase origin "${{ inputs.output-branch }}" || echo "Nothing to rebase"
+          git push origin HEAD:"${{ inputs.output-branch }}"
+
+      - name: Comment preview URL
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: docs-preview
+          message: |
+            **Documentation preview** for this PR:
+
+            ${{ inputs.base-url }}/${{ github.event.repository.name }}/pr-${{ github.event.number }}/
+
+            <sub>Rebuilt on every push · removed automatically when the PR closes.</sub>

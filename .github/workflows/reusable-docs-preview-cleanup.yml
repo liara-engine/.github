@@ -1,0 +1,55 @@
+name: reusable-docs-preview-cleanup
+
+on:
+  workflow_call:
+    inputs:
+      output-repository:
+        required: true
+        type: string
+      output-branch:
+        required: false
+        type: string
+        default: cloudflare-pages
+
+    secrets:
+      push-token:
+        required: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    concurrency:
+      group: docs-publish-${{ inputs.output-repository }}-${{ github.repository }}
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.output-repository }}
+          ref: ${{ inputs.output-branch }}
+          token: ${{ secrets.push-token }}
+          path: output-repository
+          fetch-depth: '0'
+
+      - name: Remove preview directory
+        run: |
+          set -euo pipefail
+          cd output-repository
+          repo_name="${GITHUB_REPOSITORY##*/}"
+          target="site/${repo_name}/pr-${{ github.event.number }}"
+
+          if [ ! -d "$target" ]; then
+            echo "No preview at $target, nothing to clean."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git rm -r --quiet "$target"
+          git commit -m "Remove docs preview pr-${{ github.event.number }} for ${GITHUB_REPOSITORY}"
+          git pull --rebase origin "${{ inputs.output-branch }}" || echo "Nothing to rebase"
+          git push origin HEAD:"${{ inputs.output-branch }}"
