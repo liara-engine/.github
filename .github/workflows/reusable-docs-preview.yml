@@ -26,6 +26,9 @@ on:
 
 jobs:
   build:
+    permissions:
+      contents: read
+      packages: read
     uses: liara-engine/.github/.github/workflows/reusable-build-docs.yml@v0
     with:
       image: ${{ inputs.image }}
