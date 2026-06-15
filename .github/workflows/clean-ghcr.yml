@@ -15,8 +15,8 @@ jobs:
       - id: get-packages
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run : |
-          PACKAGES=$(gh api orgs/${{ github.repository_owner }}/packages?package_type=container --jq '[.[] | .name]')
+        run: |
+          PACKAGES=$(gh package list --org liara-engine --type container --format json | jq -0c '[.[] | .name]')
           echo "Found packages: $PACKAGES"
           echo "list=$PACKAGES" >> $GITHUB_OUTPUT
 
