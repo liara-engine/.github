@@ -1,0 +1,29 @@
+name: clean-ghcr
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Runs every Sunday at midnight
+  workflow_dispatch:
+
+jobs:
+  clean-untagged-images:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - id: get-packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run : |
+          PACKAGES=$(gh api orgs/${{ github.repository_owner }}/packages?package_type=container --jq '[.[] | .name]')
+          echo "Found packages: $PACKAGES"
+          echo "list=$PACKAGES" >> $GITHUB_OUTPUT
+
+      - if: steps.get-packages.outputs.list != '[]' && steps.get-packages.outputs.list != ''
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ join(fromJSON(steps.get-packages.outputs.list), ',') }}
+          package-type: 'container'
+          min-versions-to-keep: 3
+          delete-only-untagged-versions: 'true'
