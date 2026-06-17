@@ -1,0 +1,46 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  lint-commits:
+    if: github.event_name == 'pull_request'
+    uses: liara-engine/.github/.github/workflows/commitlint.yml@v0
+
+  release-please:
+    runs-on: ubuntu-24.04
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      major: ${{ steps.version-parse.outputs.major }}
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: version-parse
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          echo "major=v$MAJOR" >> $GITHUB_OUTPUT
+
+  update-floating-tag:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: rickstaa/action-create-tag@v1
+        with:
+          tag: ${{ needs.needs-please.outputs.major }}
+          force_push_tag: true
