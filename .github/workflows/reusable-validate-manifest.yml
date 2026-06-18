@@ -54,7 +54,7 @@ jobs:
             fi
           
             local ajv_output
-            if ! ajv_output=$(ajv validate -s "$tmp_schema" -d "$json_file" 2>&1); then
+            if ! ajv_output=$(ajv validate -s "$tmp_schema" -d "$json_file" --strict=true 2>&1); then
               local exit_code=4
             else
               local exit_code=0
