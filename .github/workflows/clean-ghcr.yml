@@ -1,29 +1,27 @@
-name: clean-ghcr
+name: reusable-clean-ghcr
 on:
-  schedule:
-    - cron: '0 0 * * 0' # Runs every Sunday at midnight
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      package-name:
+        required: true
+        type: string
+      min-versions-to-keep:
+        required: false
+        type: number
+        default: 3
 
 jobs:
   clean-untagged-images:
     runs-on: ubuntu-24.04
+
     permissions:
       contents: read
       packages: write
 
     steps:
-      - id: get-packages
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PACKAGES=$(gh package list --org liara-engine --type container --format json | jq -0c '[.[] | .name]')
-          echo "Found packages: $PACKAGES"
-          echo "list=$PACKAGES" >> $GITHUB_OUTPUT
-
-      - if: steps.get-packages.outputs.list != '[]' && steps.get-packages.outputs.list != ''
-        uses: actions/delete-package-versions@v5
+      - uses: actions/delete-package-versions@v5
         with:
-          package-name: ${{ join(fromJSON(steps.get-packages.outputs.list), ',') }}
-          package-type: 'container'
-          min-versions-to-keep: 3
-          delete-only-untagged-versions: 'true'
+          package-name: ${{ inputs.package-name }}
+          package-type: container
+          min-versions-to-keep: ${{ inputs.min-versions-to-keep }}
+          delete-only-untagged-versions: true
