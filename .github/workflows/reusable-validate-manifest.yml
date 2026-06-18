@@ -1,0 +1,116 @@
+name: validate-manifest
+
+on:
+  workflow_call:
+
+jobs:
+  validate-manifest:
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - run: npm install -g ajv-cli
+      - run: |
+          set -uo pipefail
+          
+          validate_schema() {
+            local json_file="$1"
+
+            if [ ! -f "$json_file" ]; then
+              echo "ERROR: File not found: $json_file"
+              return 1
+            fi
+
+            echo "==> Validating $(basename "$json_file")"
+
+            local schema_url
+            schema_url=$(jq -r '."$schema" // empty' "$json_file")
+
+            if [ -z "${schema_url}" ]; then
+              echo "ERROR: $json_file does not declare a \$schema"
+              return 2
+            fi
+
+            local tmp_schema
+            tmp_schema=$(mktemp)
+
+            if ! curl -fsSL "${schema_url}" -o "${tmp_schema}"; then
+              echo "ERROR: Failed to download schema from ${schema_url}"
+              return 3
+            fi
+          
+            ajv validate -s "${tmp_schema}" -d "${json_file}"
+            local exit_code=$?
+
+            rm -f "${tmp_schema}"
+          
+            if [ $exit_code -ne 0 ]; then
+              echo "ERROR: Validation failed for $(basename "$json_file")"
+              return 4
+            fi
+          
+            echo "Validation successful for $(basename "$json_file")"
+            return 0
+          }
+          
+          failed_files=()
+          failure_codes=()
+          
+          while IFS= read -r json_file; do
+            validate_schema "$json_file"
+            exit_code=$?
+          
+            if [ $exit_code -ne 0 ]; then
+                failed_files+=("$json_file")
+                failure_codes+=("$exit_code")
+            fi
+          done < <(
+            find . -type f \
+            -path "./.git" -prune -o \
+            -path "./.github" -prune -o \
+            \( -name "manifest.json" \
+            -o -name "*.liaradoc.json" \
+            -o -name "modules-registry.json" \
+            -o -name "version.json" \)
+          )
+          
+          if [ ${#failed_files[@]} -ne 0 ]; then
+            echo "## Validation Results" > comment.md
+            echo "" >> comment.md
+            for i in "${!failed_files[@]}"; do
+              if [ "${failure_codes[$i]}" -eq 1 ]; then
+                echo "- **ERROR**: File not found: ${failed_files[$i]}" >> comment.md
+              elif [ "${failure_codes[$i]}" -eq 2 ]; then
+                echo "- **ERROR**: ${failed_files[$i]} does not declare a \$schema" >> comment.md
+              elif [ "${failure_codes[$i]}" -eq 3 ]; then
+                echo "- **ERROR**: Failed to download schema for ${failed_files[$i]}" >> comment.md
+              elif [ "${failure_codes[$i]}" -eq 4 ]; then
+                echo "- **ERROR**: Validation failed for ${failed_files[$i]}" >> comment.md
+              else
+                echo "- **ERROR**: Unknown error for ${failed_files[$i]} (exit code ${failure_codes[$i]})" >> comment.md
+              fi
+            done
+            exit 1
+          else
+            echo "## Validation Results" > comment.md
+            echo "" >> comment.md
+            echo "All JSON files validated successfully." >> comment.md
+          fi
+
+      - if: always() && github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: comment.md
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: validate-manifest-comment
+          path: comment.md
