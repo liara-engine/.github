@@ -1,15 +1,63 @@
-name: reusable-commitlint.yml
+name: Lint Commits
 
 on:
   workflow_call:
 
 jobs:
   commitlint:
+
+    permissions:
+      pull-requests: write
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: wagoid/commitlint-github-action@v6
+
+      - id: commitlint
+        uses: wagoid/commitlint-github-action@v6
         with:
           configFile: .commitlintrc.json
+
+      - if: always()
+        env:
+          RESULT: ${{ steps.commitlint.outputs.results }}
+        run: |
+          node <<'EOF' > comment.md
+          const result = JSON.parse(process.env.RESULT);
+          
+          let md = `## Commit Lint Results\n\n`;
+          
+          const invalid = results.filter(r => !r.valid || r.errors.length || r.warnings.length);
+          
+          if (invalid.length === 0) {
+              md += `Everything is good!\n\n`;
+          } else {
+              md += `Some commits are invalid. ❌\n\n`;
+              invalid.forEach(r => {
+                  md += `### Commit: ${r.commit}\n`;
+                  if (r.errors.length) {
+                      md += `**Errors:**\n`;
+                      r.errors.forEach(e => {
+                          md += `- ${e.message}\n`;
+                      });
+                  }
+                  if (r.warnings.length) {
+                      md += `**Warnings:**\n`;
+                      r.warnings.forEach(w => {
+                          md += `- ${w.message}\n`;
+                      });
+                  }
+                  md += `\n`;
+              });
+          }
+          
+          process.stdout.write(md);
+          EOF
+
+      - if: always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            $(cat comment.md)
