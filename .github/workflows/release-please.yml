@@ -15,6 +15,8 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       major: ${{ steps.version-parse.outputs.major }}
+      minor: ${{ steps.version-parse.outputs.minor }}
+      patch: ${{ steps.version-parse.outputs.patch }}
 
     steps:
       - uses: googleapis/release-please-action@v4
@@ -27,7 +29,11 @@ jobs:
         run: |
           VERSION="${{ steps.release.outputs.version }}"
           MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
           echo "major=v$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=v$MAJOR.$MINOR" >> $GITHUB_OUTPUT
+          echo "patch=v$MAJOR.$MINOR.$PATCH" >> $GITHUB_OUTPUT
 
   update-floating-tag:
     needs: release-please
@@ -39,5 +45,9 @@ jobs:
           fetch-depth: 0
       - uses: rickstaa/action-create-tag@v1
         with:
-          tag: ${{ needs.needs-please.outputs.major }}
+          tag: ${{ needs.release-please.outputs.major }}
+          force_push_tag: true
+      - uses: rickstaa/action-create-tag@v1
+        with:
+          tag: ${{ needs.release-please.outputs.minor }}
           force_push_tag: true
