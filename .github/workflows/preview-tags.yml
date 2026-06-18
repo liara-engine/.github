@@ -21,3 +21,11 @@ jobs:
           tag: preview-${{ github.event.pull_request.number }}
           commit_sha: ${{ github.event.pull_request.head.sha }}
           force_push_tag: true
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            ## Preview Tag
+            A preview tag has been created for this pull request: `preview-${{ github.event.pull_request.number }}`. You can use this tag to test the changes in your action or workflow.
+            <sub>Note: This tag will be updated automatically whenever new commits are pushed to this pull request, and will be deleted when the pull request is closed.</sub>
+          header: 'preview-tag'
