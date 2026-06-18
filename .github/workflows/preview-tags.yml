@@ -1,0 +1,23 @@
+name: preview-tags
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  update-preview-tag:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: rickstaa/action-create-tag@v1
+        with:
+          tag: preview-${{ github.event.pull_request.number }}
+          commit_sha: ${{ github.event.pull_request.head.sha }}
+          force_push_tag: true

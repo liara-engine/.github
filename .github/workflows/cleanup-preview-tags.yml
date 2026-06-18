@@ -1,0 +1,19 @@
+name: cleanup-preview-tags
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  delete-preview-tag:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - env:
+          TAG: preview-${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git push origin :refs/tags/$TAG || true
