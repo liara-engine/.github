@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/liara-engine/.github/compare/v0.1.0...v0.1.1) (2026-06-18)
+
+
+### Bug Fixes
+
+* **release-please:** update runner version to ubuntu-24.04 and adjust permissions ([feb1840](https://github.com/liara-engine/.github/commit/feb1840a9f3750dcd88b0d5dd1066089f5e2ef6a))
+* **release-please:** use the correct name for tag ([0bce758](https://github.com/liara-engine/.github/commit/0bce758d3593b7b29b5a37f76aba4dc5559c9e46))
+
 ## [0.1.0](https://github.com/liara-engine/.github/compare/v0.0.9...v0.1.0) (2026-06-18)
 
 
