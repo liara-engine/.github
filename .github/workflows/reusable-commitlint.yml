@@ -59,5 +59,4 @@ jobs:
       - if: always()
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          message: |
-            $(cat comment.md)
+          path: comment.md
