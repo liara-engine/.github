@@ -24,7 +24,7 @@ jobs:
 
       - run: npm install -g ajv-cli@5 ajv@8
       - run: |
-          set -euo pipefail
+          set -uo pipefail
           
           validate_schema() {
             local json_file="$1"
