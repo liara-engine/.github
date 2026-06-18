@@ -25,7 +25,7 @@ jobs:
           RESULT: ${{ steps.commitlint.outputs.results }}
         run: |
           node <<'EOF' > comment.md
-          const result = JSON.parse(process.env.RESULT);
+          const results = JSON.parse(process.env.RESULT);
           
           let md = `## Commit Lint Results\n\n`;
           
