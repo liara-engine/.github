@@ -2,6 +2,12 @@ name: validate-manifest
 
 on:
   workflow_call:
+    inputs:
+      package:
+        description: 'The package key in the .release-please-manifest.json to validate against the manifest.json'
+        required: false
+        type: string
+        default: '.'
 
 jobs:
   validate-manifest:
@@ -16,9 +22,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - run: npm install -g ajv-cli
+      - run: npm install -g ajv-cli@5 ajv@8
       - run: |
-          set -uo pipefail
+          set -euo pipefail
           
           validate_schema() {
             local json_file="$1"
@@ -43,16 +49,22 @@ jobs:
 
             if ! curl -fsSL "${schema_url}" -o "${tmp_schema}"; then
               echo "ERROR: Failed to download schema from ${schema_url}"
+              rm -f "${tmp_schema}"
               return 3
             fi
           
-            ajv validate -s "${tmp_schema}" -d "${json_file}"
-            local exit_code=$?
+            local ajv_output
+            if ! ajv_output=$(ajv validate -s "$tmp_schema" -d "$json_file" 2>&1); then
+              local exit_code=4
+            else
+              local exit_code=0
+            fi
 
             rm -f "${tmp_schema}"
           
             if [ $exit_code -ne 0 ]; then
               echo "ERROR: Validation failed for $(basename "$json_file")"
+              echo "$ajv_output" > "ajv_$(sha256sum <<< "$json_file" | cut -d' ' -f1).log"
               return 4
             fi
           
@@ -62,27 +74,36 @@ jobs:
           
           failed_files=()
           failure_codes=()
+          ajv_outputs=()
           
           while IFS= read -r json_file; do
-            validate_schema "$json_file"
-            exit_code=$?
-          
-            if [ $exit_code -ne 0 ]; then
-                failed_files+=("$json_file")
-                failure_codes+=("$exit_code")
+            if validate_schema "$json_file"; then
+              echo "Validation successful for $json_file"
+            else
+              exit_code=$?
+              failed_files+=("$json_file")
+              failure_codes+=("$exit_code")
+              log_file="ajv_$(sha256sum <<< "$json_file" | cut -d' ' -f1).log"
+              if [ -f "$log_file" ]; then
+                ajv_outputs+=("$(cat "ajv_$(sha256sum <<< "$json_file" | cut -d' ' -f1).log")")
+                rm -f "ajv_$(sha256sum <<< "$json_file" | cut -d' ' -f1).log"
+              else
+                ajv_outputs+=("")
+              fi
             fi
           done < <(
-            find . -type f \
-            -path "./.git" -prune -o \
-            -path "./.github" -prune -o \
-            \( -name "manifest.json" \
-            -o -name "*.liaradoc.json" \
-            -o -name "modules-registry.json" \
-            -o -name "version.json" \)
+            find . \
+              -type d \( -name .git -o -name .github \) -prune -o \
+              -type f \
+              \( -name "manifest.json" \
+                -o -name "*.liaradoc.json" \
+                -o -name "modules-registry.json" \
+                -o -name "version.json" \
+              \) -print
           )
           
           if [ ${#failed_files[@]} -ne 0 ]; then
-            echo "## Validation Results" > comment.md
+            echo "## Schema Validation Results" > comment.md
             echo "" >> comment.md
             for i in "${!failed_files[@]}"; do
               if [ "${failure_codes[$i]}" -eq 1 ]; then
@@ -93,21 +114,60 @@ jobs:
                 echo "- **ERROR**: Failed to download schema for ${failed_files[$i]}" >> comment.md
               elif [ "${failure_codes[$i]}" -eq 4 ]; then
                 echo "- **ERROR**: Validation failed for ${failed_files[$i]}" >> comment.md
+                echo "" >> comment.md
+                echo '```text' >> comment.md
+                echo "${ajv_outputs[$i]}" >> comment.md
+                echo '```' >> comment.md
               else
                 echo "- **ERROR**: Unknown error for ${failed_files[$i]} (exit code ${failure_codes[$i]})" >> comment.md
               fi
             done
             exit 1
           else
-            echo "## Validation Results" > comment.md
+            echo "## Schema Validation Results" > comment.md
             echo "" >> comment.md
             echo "All JSON files validated successfully." >> comment.md
           fi
 
-      - if: always() && github.event_name == 'pull_request'
+      - env:
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          if [ ! -f manifest.json ] || [ ! -f .release-please-manifest.json ]; then
+            echo "No manifest.json or .release-please-manifest.json found, skipping version validation."
+            exit 0
+          fi
+          
+          TARGET_VERSION=$(jq -r --arg pkg "$PACKAGE" '.[$pkg] // empty' .release-please-manifest.json)
+          echo "Target version: $TARGET_VERSION"
+          
+          if [ -z "$TARGET_VERSION" ]; then
+            echo "Unable to determine target version"
+            echo "" >> comment.md
+            echo "## Version Validation Results" >> comment.md
+            echo "" >> comment.md
+            echo "- **ERROR**: Unable to determine target version from .release-please-manifest.json" >> comment.md
+            exit 1
+          fi
+          
+          EXISTS=$(jq --arg ver "$TARGET_VERSION" '.versions | has($ver)' manifest.json)
+            if [ "$EXISTS" != "true" ]; then
+                echo "" >> comment.md
+                echo "## Version Validation Results" >> comment.md
+                echo "" >> comment.md
+                echo "- **ERROR**: Target version $TARGET_VERSION does not exist in manifest.json" >> comment.md
+                exit 1
+            else
+                echo "" >> comment.md
+                echo "## Version Validation Results" >> comment.md
+                echo "" >> comment.md
+                echo "Target version $TARGET_VERSION exists in manifest.json" >> comment.md
+            fi
+
+      - if: always() && github.event.pull_request != null
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           path: comment.md
+          header: 'validate-manifest'
 
       - if: always()
         uses: actions/upload-artifact@v7
