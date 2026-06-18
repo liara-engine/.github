@@ -1,4 +1,4 @@
-name: Lint Commits
+name: commitlint
 
 on:
   workflow_call:
@@ -9,7 +9,7 @@ jobs:
     permissions:
       pull-requests: write
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
