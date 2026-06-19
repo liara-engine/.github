@@ -1,0 +1,11 @@
+name: commitlint.yml
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  lint-commits:
+    permissions:
+      pull-requests: write
+    uses: liara-engine/.github/.github/workflows/reusable-commitlint.yml@preview-6
