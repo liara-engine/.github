@@ -15,49 +15,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - id: commitlint
-        uses: wagoid/commitlint-github-action@v6
+      - uses: actions/setup-node@v4
         with:
-          configFile: .commitlintrc.json
+          node-version: '24'
 
-      - if: always()
-        env:
-          RESULT: ${{ steps.commitlint.outputs.results }}
+      - run: npm install -g @commitlint/cli @commitlint/config-conventional
+
+      - id: commitlint
+        continue-on-error: true
         run: |
-          node <<'EOF' > comment.md
-          const results = JSON.parse(process.env.RESULT);
-          
-          let md = `## Commit Lint Results\n\n`;
-          
-          const invalid = results.filter(r => !r.valid || r.errors.length || r.warnings.length);
-          
-          if (invalid.length === 0) {
-              md += `Everything is good!\n\n`;
-          } else {
-              md += `Some commits are invalid. ❌\n\n`;
-              invalid.forEach(r => {
-                  md += `### Commit: ${r.commit}\n`;
-                  if (r.errors.length) {
-                      md += `**Errors:**\n`;
-                      r.errors.forEach(e => {
-                          md += `- ${e.message}\n`;
-                      });
-                  }
-                  if (r.warnings.length) {
-                      md += `**Warnings:**\n`;
-                      r.warnings.forEach(w => {
-                          md += `- ${w.message}\n`;
-                      });
-                  }
-                  md += `\n`;
-              });
-          }
-          
-          process.stdout.write(md);
-          EOF
+          echo "## Commit Lint Results" > comment.md
+          echo "" >> comment.md
+          npx commitlint --from=origin/${{ github.base_ref }} --to=${{ github.sha }} --format commitlint-format-markdown >> comment.md
+          echo "exit_code=$?" >> $GITHUB_ENV
 
-      - if: always()
-        uses: marocchino/sticky-pull-request-comment@v2
+      - if: env.exit_code == '0'
+        run: |
+          echo "Everything looks good! No commit message errors found." > comment.md
+
+      - uses: marocchino/sticky-pull-request-comment@v2
         with:
           path: comment.md
           header: 'commitlint'
+
+      - if: env.exit_code != '0'
+        run: |
+          echo "Commit message errors found. Please check the comment above for details."
+          exit 1
