@@ -80,6 +80,10 @@ jobs:
                 echo '```' >> comment.md
               else
                 echo "- **ERROR**: Unknown error for ${failed_files[$i]} (exit code ${failure_codes[$i]})" >> comment.md
+                echo "" >> comment.md
+                echo '```text' >> comment.md
+                echo "${ajv_outputs[$i]}" >> comment.md
+                echo '```' >> comment.md
               fi
             done
             exit 1
