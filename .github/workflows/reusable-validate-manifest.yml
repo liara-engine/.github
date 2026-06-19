@@ -45,7 +45,7 @@ jobs:
             fi
 
             local tmp_schema
-            tmp_schema=$(mktemp)
+            tmp_schema=$(mktemp --suffix=.json)
 
             if ! curl -fsSL "${schema_url}" -o "${tmp_schema}"; then
               echo "ERROR: Failed to download schema from ${schema_url}"
