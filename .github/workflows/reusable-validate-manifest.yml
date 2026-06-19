@@ -42,7 +42,7 @@ jobs:
           while IFS= read -r json_file; do
             echo "==> Validating $(basename "$json_file")"
 
-            local ajv_output
+            ajv_output
             if ajv_output=$(bash .github-shared-core/scripts/validate-schema.sh "$json_file" 2>&1); then
               echo "Validation successful for $json_file"
             else
