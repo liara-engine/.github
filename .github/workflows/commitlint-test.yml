@@ -9,3 +9,4 @@ jobs:
     permissions:
       pull-requests: write
     uses: liara-engine/.github/.github/workflows/reusable-commitlint.yml@preview-6
+
