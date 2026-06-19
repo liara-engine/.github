@@ -1,0 +1,147 @@
+name: validate-manifest
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: 'The package key in the .release-please-manifest.json to validate against the manifest.json'
+        required: false
+        type: string
+        default: '.'
+      github-repo-version:
+        description: 'The version of the .github repository to use for shared scripts'
+        required: false
+        type: string
+        default: 'main'
+
+jobs:
+  validate-manifest:
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+            
+      - uses: actions/checkout@v6
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ inputs.github-repo-version }}'
+          path: '.github-shared-core'
+
+      - run: npm install -g ajv-cli@5 ajv@8
+      - run: |
+          set -uo pipefail
+
+          export SCHEMA_CACHE_DIR
+          SCHEMA_CACHE_DIR=$(mktemp -d)
+          trap 'rm -rf "$SCHEMA_CACHE_DIR"' EXIT
+
+          failed_files=()
+          failure_codes=()
+          ajv_outputs=()
+
+          while IFS= read -r json_file; do
+            echo "==> Validating $(basename "$json_file")"
+
+            ajv_output=""
+            # use scripts/validate-schema.sh to validate the JSON file
+            if ajv_output=$(bash .github-shared-core/scripts/validate-schema.sh "$json_file" 2>&1); then
+              echo "Validation successful for $json_file"
+            else
+              exit_code=$?
+              failed_files+=("$json_file")
+              failure_codes+=("$exit_code")
+              ajv_outputs+=("$ajv_output")
+            fi
+          done < <(
+            find . \
+              -type d \( -name .git -o -name .github \) -prune -o \
+              -type f \
+              \( -name "manifest.json" \
+                -o -name "*.liaradoc.json" \
+                -o -name "modules-registry.json" \
+                -o -name "version.json" \
+              \) -print
+          )
+
+          if [ ${#failed_files[@]} -ne 0 ]; then
+            echo "## Schema Validation Results" > comment.md
+            echo "" >> comment.md
+            for i in "${!failed_files[@]}"; do
+              if [ "${failure_codes[$i]}" -eq 1 ]; then
+                echo "- **ERROR**: File not found: ${failed_files[$i]}" >> comment.md
+              elif [ "${failure_codes[$i]}" -eq 2 ]; then
+                echo "- **ERROR**: ${failed_files[$i]} does not declare a \$schema" >> comment.md
+              elif [ "${failure_codes[$i]}" -eq 3 ]; then
+                echo "- **ERROR**: Failed to download schema for ${failed_files[$i]}" >> comment.md
+              elif [ "${failure_codes[$i]}" -eq 4 ]; then
+                echo "- **ERROR**: Validation failed for ${failed_files[$i]}" >> comment.md
+                echo "" >> comment.md
+                echo '```text' >> comment.md
+                echo "${ajv_outputs[$i]}" >> comment.md
+                echo '```' >> comment.md
+              else
+                echo "- **ERROR**: Unknown error for ${failed_files[$i]} (exit code ${failure_codes[$i]})" >> comment.md
+                echo "" >> comment.md
+                echo '```text' >> comment.md
+                echo "${ajv_outputs[$i]}" >> comment.md
+                echo '```' >> comment.md
+              fi
+            done
+            exit 1
+          else
+            echo "## Schema Validation Results" > comment.md
+            echo "" >> comment.md
+            echo "All JSON files validated successfully." >> comment.md
+          fi
+
+      - env:
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          if [ ! -f manifest.json ] || [ ! -f .release-please-manifest.json ]; then
+            echo "No manifest.json or .release-please-manifest.json found, skipping version validation."
+            exit 0
+          fi
+          
+          TARGET_VERSION=$(jq -r --arg pkg "$PACKAGE" '.[$pkg] // empty' .release-please-manifest.json)
+          echo "Target version: $TARGET_VERSION"
+          
+          if [ -z "$TARGET_VERSION" ]; then
+            echo "Unable to determine target version"
+            echo "" >> comment.md
+            echo "## Version Validation Results" >> comment.md
+            echo "" >> comment.md
+            echo "- **ERROR**: Unable to determine target version from .release-please-manifest.json" >> comment.md
+            exit 1
+          fi
+          
+          EXISTS=$(jq --arg ver "$TARGET_VERSION" '.versions | has($ver)' manifest.json)
+            if [ "$EXISTS" != "true" ]; then
+                echo "" >> comment.md
+                echo "## Version Validation Results" >> comment.md
+                echo "" >> comment.md
+                echo "- **ERROR**: Target version $TARGET_VERSION does not exist in manifest.json" >> comment.md
+                exit 1
+            else
+                echo "" >> comment.md
+                echo "## Version Validation Results" >> comment.md
+                echo "" >> comment.md
+                echo "Target version $TARGET_VERSION exists in manifest.json" >> comment.md
+            fi
+
+      - if: always() && github.event.pull_request != null
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: comment.md
+          header: 'validate-manifest'
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: validate-manifest-comment
+          path: comment.md
