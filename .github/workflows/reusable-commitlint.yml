@@ -22,24 +22,26 @@ jobs:
       - run: npm install -g @commitlint/cli @commitlint/config-conventional
 
       - id: commitlint
-        continue-on-error: true
         run: |
           echo "## Commit Lint Results" > comment.md
           echo "" >> comment.md
           echo '```' >> comment.md
 
+          set +e
           commitlint \
             --from=origin/${{ github.base_ref }} \
             --to=${{ github.sha }} >> comment.md 2>&1
-
           EXIT_CODE=$?
+          set -e
 
           echo '```' >> comment.md
           echo "exit_code=$EXIT_CODE" >> $GITHUB_ENV
 
       - if: env.exit_code == '0'
         run: |
-          echo "Everything looks good! No commit message errors found." > comment.md
+          echo "## Commit Lint Results" > comment.md
+          echo "" >> comment.md
+          echo "Everything looks good! No commit message errors found." >> comment.md
 
       - uses: marocchino/sticky-pull-request-comment@v2
         with:
