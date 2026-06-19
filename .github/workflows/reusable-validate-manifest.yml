@@ -22,74 +22,34 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/checkout@v6
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          path: '.github-shared-core'
+
       - run: npm install -g ajv-cli@5 ajv@8
       - run: |
           set -uo pipefail
-          
-          validate_schema() {
-            local json_file="$1"
 
-            if [ ! -f "$json_file" ]; then
-              echo "ERROR: File not found: $json_file"
-              return 1
-            fi
+          export SCHEMA_CACHE_DIR
+          SCHEMA_CACHE_DIR=$(mktemp -d)
+          trap 'rm -rf "$SCHEMA_CACHE_DIR"' EXIT
 
-            echo "==> Validating $(basename "$json_file")"
-
-            local schema_url
-            schema_url=$(jq -r '."$schema" // empty' "$json_file")
-
-            if [ -z "${schema_url}" ]; then
-              echo "ERROR: $json_file does not declare a \$schema"
-              return 2
-            fi
-
-            local tmp_schema
-            tmp_schema=$(mktemp --suffix=.json)
-
-            if ! curl -fsSL "${schema_url}" -o "${tmp_schema}"; then
-              echo "ERROR: Failed to download schema from ${schema_url}"
-              rm -f "${tmp_schema}"
-              return 3
-            fi
-          
-            local ajv_output
-            if ! ajv_output=$(ajv validate -s "$tmp_schema" -d "$json_file" --strict=true 2>&1); then
-              local exit_code=4
-            else
-              local exit_code=0
-            fi
-
-            rm -f "${tmp_schema}"
-          
-            if [ $exit_code -ne 0 ]; then
-              echo "ERROR: Validation failed for $(basename "$json_file")"
-              echo "$ajv_output" > "ajv_$(sha256sum <<< "$json_file" | cut -d' ' -f1).log"
-              return 4
-            fi
-          
-            echo "Validation successful for $(basename "$json_file")"
-            return 0
-          }
-          
           failed_files=()
           failure_codes=()
           ajv_outputs=()
-          
+
           while IFS= read -r json_file; do
-            if validate_schema "$json_file"; then
+            echo "==> Validating $(basename "$json_file")"
+
+            local ajv_output
+            if ajv_output=$(bash .github-shared-core/scripts/validate-schema.sh "$json_file" 2>&1); then
               echo "Validation successful for $json_file"
             else
               exit_code=$?
               failed_files+=("$json_file")
               failure_codes+=("$exit_code")
-              log_file="ajv_$(sha256sum <<< "$json_file" | cut -d' ' -f1).log"
-              if [ -f "$log_file" ]; then
-                ajv_outputs+=("$(cat "ajv_$(sha256sum <<< "$json_file" | cut -d' ' -f1).log")")
-                rm -f "ajv_$(sha256sum <<< "$json_file" | cut -d' ' -f1).log"
-              else
-                ajv_outputs+=("")
-              fi
+              ajv_outputs+=("$ajv_output")
             fi
           done < <(
             find . \
@@ -101,7 +61,7 @@ jobs:
                 -o -name "version.json" \
               \) -print
           )
-          
+
           if [ ${#failed_files[@]} -ne 0 ]; then
             echo "## Schema Validation Results" > comment.md
             echo "" >> comment.md
