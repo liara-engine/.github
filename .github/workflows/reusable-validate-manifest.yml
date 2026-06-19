@@ -22,9 +22,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - id: parse-ref
+        run: |
+          EXTRACTED_REF=$(echo "${{ github.workflow_ref }}" | sed 's/.*@//')
+          echo "workflow_ref=${EXTRACTED_REF}" >> $GITHUB_OUTPUT
+          echo "Parsed workflow_ref: $EXTRACTED_REF"
+            
       - uses: actions/checkout@v6
         with:
           repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ steps.parse-ref.outputs.workflow_ref }}'
           path: '.github-shared-core'
 
       - run: npm install -g ajv-cli@5 ajv@8
@@ -43,6 +50,7 @@ jobs:
             echo "==> Validating $(basename "$json_file")"
 
             ajv_output=""
+            # use scripts/validate-schema.sh to validate the JSON file
             if ajv_output=$(bash .github-shared-core/scripts/validate-schema.sh "$json_file" 2>&1); then
               echo "Validation successful for $json_file"
             else
