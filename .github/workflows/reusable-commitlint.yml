@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: '24'
 
-      - run: npm install -g @commitlint/cli @commitlint/config-conventional commitlint-format-markdown
+      - run: npm install -g @commitlint/cli @commitlint/config-conventional @commitlint/format
 
       - id: commitlint
         continue-on-error: true
