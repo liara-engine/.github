@@ -45,6 +45,6 @@ if [ ! -f "${CACHED_SCHEMA}" ]; then
     fi
 fi
 
-if ! ajv validate -s "${CACHED_SCHEMA}" -d "${JSON_FILE}" --strict=true; then
+if ! npx ajv validate -s "${CACHED_SCHEMA}" -d "${JSON_FILE}" --strict=true; then
     exit 4
 fi
