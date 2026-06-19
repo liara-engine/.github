@@ -19,14 +19,14 @@ jobs:
         with:
           node-version: '24'
 
-      - run: npm install -g @commitlint/cli @commitlint/config-conventional
+      - run: npm install -g @commitlint/cli @commitlint/config-conventional commitlint-format-markdown
 
       - id: commitlint
         continue-on-error: true
         run: |
           echo "## Commit Lint Results" > comment.md
           echo "" >> comment.md
-          npx commitlint --from=origin/${{ github.base_ref }} --to=${{ github.sha }} --format commitlint-format-markdown >> comment.md
+          commitlint --from=origin/${{ github.base_ref }} --to=${{ github.sha }} --format commitlint-format-markdown >> comment.md
           echo "exit_code=$?" >> $GITHUB_ENV
 
       - if: env.exit_code == '0'
