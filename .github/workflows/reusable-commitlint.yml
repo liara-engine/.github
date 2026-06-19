@@ -23,18 +23,38 @@ jobs:
 
       - id: commitlint
         run: |
-          echo "## Commit Lint Results" > comment.md
-          echo "" >> comment.md
-          echo '```' >> comment.md
-
           set +e
           commitlint \
+            --color=false \
+            --format=json \
             --from=origin/${{ github.base_ref }} \
-            --to=${{ github.sha }} >> comment.md 2>&1
+            --to=${{ github.sha }} > commitlint.json
           EXIT_CODE=$?
           set -e
 
-          echo '```' >> comment.md
+          node <<'EOF'
+          const fs = require('fs');
+          const result = JSON.parse(fs.readFileSync('commitlint.json'));
+          let md = '';
+
+          if (result.valid) {
+            md += '## Commitlint passed\n\n';
+            md += 'All commit messages follow the Conventional Commits specification.\n';
+          } else {
+            md += '## Commitlint failed\n\n';
+            for (const commit of result.results) {
+              if (commit.valid) continue;
+              md += `### \`${commit.input.split('\n')[0]}\`\n\n`;
+              for (const error of commit.errors) {
+                md += `- ❌ \`${error.name}\` — ${error.message}\n`;
+              }
+              md += '\n';
+            }
+          }
+
+          fs.writeFileSync('comment.md', md);
+          EOF
+
           echo "exit_code=$EXIT_CODE" >> $GITHUB_ENV
 
       - if: env.exit_code == '0'
