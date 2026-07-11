@@ -12,6 +12,10 @@ jobs:
       contents: write
 
     steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
       - env:
           TAG: preview-${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
