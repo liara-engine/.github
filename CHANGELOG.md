@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/liara-engine/.github/compare/v0.1.1...v0.2.0) (2026-07-11)
+
+
+### Features
+
+* **tags:** add workflows for managing preview tags on pull requests ([a13824b](https://github.com/liara-engine/.github/commit/a13824bd0578adbdabc726fe7d48c920a3e415d3))
+* **validate-manifest:** add workflow for validating JSON manifest files ([47002d3](https://github.com/liara-engine/.github/commit/47002d368cc09112b0f38efefb71f8cb1242e44d))
+
+
+### Bug Fixes
+
+* **cleanup-preview-tags:** add missing checkout step ([53efcb9](https://github.com/liara-engine/.github/commit/53efcb9b37cf2c9e0f2b251538253060fa20177f))
+* **commitlint:** rename workflow and update runner version to ubuntu-24.04 ([df66418](https://github.com/liara-engine/.github/commit/df66418a9e1f6e33db98a7dc7bc920535759fb37))
+* **preview-tags:** add sticky comment for preview tag creation on pull requests ([5a494a4](https://github.com/liara-engine/.github/commit/5a494a49bb9f68cdf49bda8f713fe4b47b9d6764))
+* **preview-tags:** update permissions to allow write access for pull requests ([a32a077](https://github.com/liara-engine/.github/commit/a32a077b532ad603884375e8029576bc9ccbfbb4))
+
 ## [0.1.1](https://github.com/liara-engine/.github/compare/v0.1.0...v0.1.1) (2026-06-18)
 
 
