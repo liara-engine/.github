@@ -2,13 +2,18 @@ name: commitlint
 
 on:
   workflow_call:
+    inputs:
+      node-version:
+        type: string
+        required: false
+        default: '24'
+      commitlint-version:
+        type: string
+        required: false
+        default: '21'
 
 jobs:
   commitlint:
-
-    permissions:
-      pull-requests: write
-
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -17,58 +22,100 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: ${{ inputs.node-version }}
 
-      - run: npm install -g @commitlint/cli @commitlint/config-conventional
+      - run: |
+          npm install --no-save --no-audit --no-fund \
+            "@commitlint/cli@${{ inputs.commitlint-version }}" \
+            "@commitlint/config-conventional@${{ inputs.commitlint-version }}"
+
+      - run: |
+          if compgen -G "commitlint.config.*" > /dev/null \
+             || compgen -G ".commitlintrc*" > /dev/null \
+             || node -e "const p=require('./package.json'); process.exit(p.commitlint ? 0 : 1)" 2>/dev/null; then
+            echo "Commitlint config found."
+          else
+            echo "Error: No commitlint config found in the repository. Please add a commitlint configuration file (commitlint.config.js, .commitlintrc.json, etc.) or a 'commitlint' field in package.json."
+            exit 1
+          fi
 
       - id: commitlint
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_SHA: ${{ github.sha }}
         run: |
-          set +e
-          commitlint \
-            --color=false \
-            --format=json \
-            --from=origin/${{ github.base_ref }} \
-            --to=${{ github.sha }} > commitlint.json
-          EXIT_CODE=$?
-          set -e
+          set -euo pipefail
+          REPORT="commitlint-report.md"
 
-          node <<'EOF'
-          const fs = require('fs');
-          const result = JSON.parse(fs.readFileSync('commitlint.json'));
-          let md = '';
+          if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "pull_request_target" ]]; then
+            mapfile -t COMMITS < <(git rev-list --no-merges --reverse "${BASE_SHA}..${HEAD_SHA}")
+          else
+            COMMITS=("$PUSH_SHA")
+          fi
 
-          if (result.valid) {
-            md += '## Commitlint passed\n\n';
-            md += 'All commit messages follow the Conventional Commits specification.\n';
-          } else {
-            md += '## Commitlint failed\n\n';
-            for (const commit of result.results) {
-              if (commit.valid) continue;
-              md += `### \`${commit.input.split('\n')[0]}\`\n\n`;
-              for (const error of commit.errors) {
-                md += `- ❌ \`${error.name}\` — ${error.message}\n`;
-              }
-              md += '\n';
-            }
-          }
+          TOTAL=${#COMMITS[@]}
+          FAILED=0
 
-          fs.writeFileSync('comment.md', md);
-          EOF
+          {
+            echo "## Commitlint"
+            echo ""
+          } > "$REPORT"
 
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_ENV
+          if [[ $TOTAL -eq 0 ]]; then
+            echo "No commits to lint." >> "$REPORT"
+            echo "failed=0" >> "$GITHUB_OUTPUT"
+            cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
-      - if: env.exit_code == '0'
-        run: |
-          echo "## Commit Lint Results" > comment.md
-          echo "" >> comment.md
-          echo "Everything looks good! No commit message errors found." >> comment.md
+          for sha in "${COMMITS[@]}"; do
+            SHORT=$(git log -1 --format='%h' "$sha")
+            SUBJECT=$(git log -1 --format='%s' "$sha")
+            SUBJECT=${SUBJECT//\`/}
 
-      - uses: marocchino/sticky-pull-request-comment@v2
+            set +e
+            OUTPUT=$(git log -1 --format='%B' "$sha" | npx commitlint --color=false 2>&1)
+            CODE=$?
+            set -e
+
+            if [[ $CODE -ne 0 ]]; then
+              FAILED=$((FAILED + 1))
+              {
+                echo "### \`$SHORT\` — $SUBJECT"
+                echo ""
+                echo '```'
+                echo "$OUTPUT"
+                echo '```'
+                echo ""
+              } >> "$REPORT"
+              echo "::error::Commit $SHORT invalid : $SUBJECT"
+            fi
+          done
+
+          if [[ $FAILED -eq 0 ]]; then
+            {
+              echo "**All $TOTAL commit(s) respect the commitlint convention.**"
+            } >> "$REPORT"
+          else
+            sed -i "2a **$FAILED commit(s) don't respect the commitlint convention.**" "$REPORT"
+          fi
+
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+          cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+
+      - if: >-
+          always() &&
+          steps.lint.outcome != 'skipped' &&
+          (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
-          path: comment.md
+          path: commitlint-report.md
           header: 'commitlint'
 
-      - if: env.exit_code != '0'
+      - if: steps.lint.outputs.failed != '0'
         run: |
-          echo "Commit message errors found. Please check the comment above for details."
+          echo "::error::${{ steps.lint.outputs.failed }} commit(s) don't respect the commitlint convention."
+          echo "Please fix these errors before merging the pull request."
           exit 1
