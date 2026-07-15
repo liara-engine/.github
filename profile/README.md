@@ -123,8 +123,7 @@ repository's `LICENSE` file.
   [meta repository](https://github.com/liara-engine/liara/discussions).
 - **Issues** for bugs and feature requests: on the relevant module's
   repository.
-- **Documentation hub**: [liara-engine.github.io](https://liara-engine.github.io)
-  *(active once Phase 0 completes).*
+- **Documentation hub**: [liara-engine.liara-engine-documentation.workers.dev](https://liara-engine.liara-engine-documentation.workers.dev)
 
 ---
 
