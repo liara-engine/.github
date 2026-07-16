@@ -153,13 +153,9 @@ def at(cursor: cindex.Cursor, rule: str, message: str) -> Violation:
 
 def check_prefix(cursor: cindex.Cursor, out: list[Violation]) -> None:
     name = cursor.spelling
-    if not name:
+    if not name or name.startswith("(unnamed"):
         return
     if cursor.kind == cindex.CursorKind.ENUM_CONSTANT_DECL:
-        enum_decl = cursor.semantic_parent
-        # The enum itself may be anonymous (no spelling), but the constant must be named.
-        if enum_decl.kind == cindex.CursorKind.ENUM_DECL and not enum_decl.spelling:
-            return
         if not UPPER_SYMBOL_RE.match(name):
             out.append(at(cursor, "prefix",
                           f"enum constant '{name}' must be LIARA_UPPER_SNAKE_CASE"))
