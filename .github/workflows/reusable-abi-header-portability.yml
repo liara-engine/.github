@@ -1,7 +1,12 @@
 name: reusable-abi-header-portability
 
-# every public header must compile standalone, warning-free, as both C and C++, across several language standards.
+# Step 1 of the ABI pipeline: every public header must compile standalone,
+# warning-free, as both C and C++, across several language standards.
 # See docs/INTERFACES.md sections 2 and 11.
+#
+# Reporting contract (consumed by reusable-abi-report.yml): each matrix leg
+# uploads an artifact `abi-step-01-header-portability-<leg>` containing
+# `meta.json` (order/step/leg/status) and `log.txt` (captured output).
 
 on:
   workflow_call:
@@ -75,10 +80,39 @@ jobs:
         run: |
           cmake -S . -B build/_portability_config ${{ inputs.configure-options }}
 
-      - run: |
+      # set +e so a portability failure does not abort the step: we still want
+      # to capture the log and upload the report fragment. The job is marked
+      # failed by the final step below.
+      - id: check
+        run: |
+          set +e
           python3 .github-shared-core/scripts/abi_header_portability.py \
             --include-dir '${{ inputs.include-dir }}' \
             --cc '${{ matrix.cc }}' \
             --cxx '${{ matrix.cxx }}' \
             --c-standards '${{ inputs.c-standards }}' \
-            --cxx-standards '${{ inputs.cxx-standards }}'
+            --cxx-standards '${{ inputs.cxx-standards }}' \
+            2>&1 | tee portability.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare report fragment
+        if: always()
+        run: |
+          mkdir -p report
+          cp portability.log report/log.txt 2>/dev/null || echo "(no log captured)" > report/log.txt
+          status="success"
+          [ "${{ steps.check.outputs.status }}" != "0" ] && status="failure"
+          cat > report/meta.json << EOF
+          {"order": 1, "step": "Header portability", "leg": "${{ matrix.name }} (${{ matrix.cc }} / ${{ matrix.cxx }})", "status": "$status"}
+          EOF
+
+      - name: Upload report fragment
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: abi-step-01-header-portability-${{ matrix.name }}
+          path: report/
+          retention-days: 1
+
+      - if: ${{ steps.check.outputs.status != '0' }}
+        run: exit 1
