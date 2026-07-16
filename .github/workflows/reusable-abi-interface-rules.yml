@@ -47,7 +47,7 @@ on:
         description: 'PyPI libclang version (match the clang major for consistent parsing).'
         required: false
         type: string
-        default: '18.1.8'
+        default: '18.1.1'
 
       github-repo-version:
         description: 'Ref of the org .github repository to pull the shared script from.'
