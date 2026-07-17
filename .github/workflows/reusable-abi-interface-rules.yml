@@ -1,0 +1,114 @@
+name: reusable-abi-interface-rules
+
+# Enforce the mechanical rules of INTERFACES.md on
+# every public header via a libclang AST linter (extern "C" wrapping, symbol
+# prefixes, fixed-width integers only, out_ parameters, forbidden includes).
+
+on:
+  workflow_call:
+    inputs:
+      include-dir:
+        description: 'Root directory holding the public headers, relative to the caller repo.'
+        required: false
+        type: string
+        default: 'include'
+
+      std:
+        description: 'C++ standard used to parse the headers.'
+        required: false
+        type: string
+        default: 'c++20'
+
+      prefix:
+        description: 'Required symbol prefix.'
+        required: false
+        type: string
+        default: 'liara'
+
+      run-configure:
+        description: 'Run a CMake configure first (needed when headers are generated, e.g. version_config.h).'
+        required: false
+        type: boolean
+        default: true
+
+      configure-options:
+        description: 'Extra -D options passed to the pre-check CMake configure.'
+        required: false
+        type: string
+        default: '-D LIARA_INTERFACES_BUILD_TESTS=OFF -D LIARA_INTERFACES_INSTALL=OFF'
+
+      clang-package:
+        description: 'apt package / binary providing clang, used to resolve system headers.'
+        required: false
+        type: string
+        default: 'clang-18'
+
+      libclang-version:
+        description: 'PyPI libclang version (match the clang major for consistent parsing).'
+        required: false
+        type: string
+        default: '18.1.1'
+
+      github-repo-version:
+        description: 'Ref of the org .github repository to pull the shared script from.'
+        required: false
+        type: string
+        default: 'main'
+
+jobs:
+  interface-rules:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/checkout@v6
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ inputs.github-repo-version }}'
+          path: '.github-shared-core'
+
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ${{ inputs.clang-package }}
+          python3 -m pip install --break-system-packages "libclang==${{ inputs.libclang-version }}"
+
+      - if: ${{ inputs.run-configure }}
+        run: |
+          cmake -S . -B build/_rules_config ${{ inputs.configure-options }}
+
+      - name: Check interface rules
+        id: check
+        run: |
+          set +e
+          python3 .github-shared-core/scripts/abi_interface_rules.py \
+            --include-dir '${{ inputs.include-dir }}' \
+            --std '${{ inputs.std }}' \
+            --prefix '${{ inputs.prefix }}' \
+            --clang '${{ inputs.clang-package }}' \
+            2>&1 | tee interface-rules.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare report fragment
+        if: always()
+        run: |
+          mkdir -p report
+          cp interface-rules.log report/log.txt 2>/dev/null || echo "(no log captured)" > report/log.txt
+          status="success"
+          [ "${{ steps.check.outputs.status }}" != "0" ] && status="failure"
+          cat > report/meta.json << EOF
+          {"order": 2, "step": "Interface rules", "leg": "libclang (${{ inputs.clang-package }})", "status": "$status"}
+          EOF
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: abi-step-02-interface-rules
+          path: report/
+          retention-days: 1
+
+      - if: ${{ steps.check.outputs.status != '0' }}
+        run: exit 1

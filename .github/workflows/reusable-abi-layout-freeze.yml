@@ -1,0 +1,189 @@
+name: reusable-abi-layout-freeze
+
+# Freeze struct layout. A committed, generated golden header
+# (abi_layout_asserts.py) holds static_assert checks on
+# sizeof/alignof/offsetof for every public POD struct.
+#
+#   layout-check    (libclang) regenerates in memory and compares to the
+#                   committed golden -> catches structs added/removed/changed
+#                   without regenerating.
+#   layout-compile  (matrix) compiles the golden asserts as C and C++ across
+#                   standards/compilers -> catches layout drift and any
+#                   cross-platform divergence.
+
+on:
+  workflow_call:
+    inputs:
+      include-dir:
+        required: false
+        type: string
+        default: 'include'
+      golden-header:
+        description: 'Path to the committed generated layout-assert header.'
+        required: false
+        type: string
+        default: 'tests/abi/abi_layout.generated.h'
+      c-standards:
+        required: false
+        type: string
+        default: '11;17;23'
+      cxx-standards:
+        required: false
+        type: string
+        default: '17;20;23'
+      clang-package:
+        required: false
+        type: string
+        default: 'clang-18'
+      libclang-version:
+        required: false
+        type: string
+        default: '18.1.1'
+      run-configure:
+        required: false
+        type: boolean
+        default: true
+      configure-options:
+        required: false
+        type: string
+        default: '-D LIARA_INTERFACES_BUILD_TESTS=OFF -D LIARA_INTERFACES_INSTALL=OFF'
+      github-repo-version:
+        required: false
+        type: string
+        default: 'main'
+
+jobs:
+  layout-check:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ inputs.github-repo-version }}'
+          path: '.github-shared-core'
+
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ${{ inputs.clang-package }}
+          python3 -m pip install --break-system-packages "libclang==${{ inputs.libclang-version }}"
+
+      - if: ${{ inputs.run-configure }}
+        run: cmake -S . -B build/_layout_config ${{ inputs.configure-options }}
+
+      - id: check
+        run: |
+          set +e
+          python3 .github-shared-core/scripts/abi_layout_asserts.py \
+            --include-dir '${{ inputs.include-dir }}' \
+            --output '${{ inputs.golden-header }}' \
+            --clang '${{ inputs.clang-package }}' \
+            --check \
+            2>&1 | tee layout-check.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - if: always()
+        run: |
+          mkdir -p report
+          cp layout-check.log report/log.txt 2>/dev/null || echo "(no log)" > report/log.txt
+          status="success"; [ "${{ steps.check.outputs.status }}" != "0" ] && status="failure"
+          cat > report/meta.json << EOF
+          {"order": 3, "step": "Layout freeze", "leg": "completeness (libclang)", "status": "$status"}
+          EOF
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: abi-step-03-layout-freeze-check
+          path: report/
+          retention-days: 1
+
+      - if: ${{ steps.check.outputs.status != '0' }}
+        run: exit 1
+
+  layout-compile:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: gcc,   os: ubuntu-24.04,   cc: gcc-14,   cxx: g++-14,     packages: 'gcc-14 g++-14', is_msvc: false }
+          - { name: clang, os: ubuntu-24.04,   cc: clang-18, cxx: clang++-18, packages: 'clang-18',      is_msvc: false }
+          - { name: msvc,  os: windows-latest, cc: cl,       cxx: cl,         packages: '',              is_msvc: true }
+    name: layout-compile (${{ matrix.name }})
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+
+      - if: ${{ !matrix.is_msvc }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ${{ matrix.packages }}
+
+      - if: ${{ matrix.is_msvc }}
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - if: ${{ inputs.run-configure }}
+        run: cmake -S . -B build/_layout_config ${{ inputs.configure-options }}
+
+      - id: check
+        run: |
+          set +e
+          printf '#include "%s"\n' "${{ inputs.golden-header }}" > layout_tu.src
+          {
+            rc=0
+            if [ "${{ matrix.is_msvc }}" = "true" ]; then
+              for std in $(echo '${{ inputs.c-standards }}' | tr ';' ' '); do
+                if [ "$std" = "11" ] || [ "$std" = "17" ]; then
+                  echo "== C (MSVC) c$std =="
+                  cl.exe -TC -std:c$std -Zs -WX -W4 -I"${{ inputs.include-dir }}" layout_tu.src || rc=1
+                fi
+              done
+              for std in $(echo '${{ inputs.cxx-standards }}' | tr ';' ' '); do
+                std_flag="c++$std"
+                if [ "$std" = "23" ]; then std_flag="c++latest"; fi
+                echo "== C++ (MSVC) $std_flag =="
+                cl.exe -TP -std:$std_flag -Zs -WX -W4 -I"${{ inputs.include-dir }}" layout_tu.src || rc=1
+              done
+            else
+              for std in $(echo '${{ inputs.c-standards }}' | tr ';' ' '); do
+                echo "== C c$std =="
+                ${{ matrix.cc }} -x c -std=c$std -fsyntax-only \
+                  -Wall -Wextra -Wpedantic -Werror \
+                  -I. -I '${{ inputs.include-dir }}' layout_tu.src || rc=1
+              done
+              for std in $(echo '${{ inputs.cxx-standards }}' | tr ';' ' '); do
+                echo "== C++ c++$std =="
+                ${{ matrix.cxx }} -x c++ -std=c++$std -fsyntax-only \
+                  -Wall -Wextra -Wpedantic -Werror \
+                  -I. -I '${{ inputs.include-dir }}' layout_tu.src || rc=1
+              done
+            fi
+            echo "$rc" > rc.txt
+          } 2>&1 | tee layout-compile.log
+          echo "status=$(cat rc.txt)" >> "$GITHUB_OUTPUT"
+
+      - if: always()
+        run: |
+          mkdir -p report
+          cp layout-compile.log report/log.txt 2>/dev/null || echo "(no log)" > report/log.txt
+          status="success"; [ "${{ steps.check.outputs.status }}" != "0" ] && status="failure"
+          cat > report/meta.json << EOF
+          {"order": 3, "step": "Layout freeze", "leg": "${{ matrix.name }} (${{ matrix.cc }} / ${{ matrix.cxx }})", "status": "$status"}
+          EOF
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: abi-step-03-layout-freeze-${{ matrix.name }}
+          path: report/
+          retention-days: 1
+
+      - if: ${{ steps.check.outputs.status != '0' }}
+        run: exit 1

@@ -1,0 +1,151 @@
+name: reusable-abi-snapshot
+
+on:
+  workflow_call:
+    inputs:
+      include-dir:
+        required: false
+        type: string
+        default: 'include'
+      std:
+        required: false
+        type: string
+        default: 'c++20'
+      clang-package:
+        required: false
+        type: string
+        default: 'clang-18'
+      libclang-version:
+        required: false
+        type: string
+        default: '18.1.1'
+      run-configure:
+        required: false
+        type: boolean
+        default: true
+      configure-options:
+        required: false
+        type: string
+        default: '-D LIARA_INTERFACES_BUILD_TESTS=OFF -D LIARA_INTERFACES_INSTALL=OFF'
+      github-repo-version:
+        required: false
+        type: string
+        default: 'main'
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    env:
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - uses: actions/checkout@v6
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ inputs.github-repo-version }}'
+          path: '.github-shared-core'
+
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ${{ inputs.clang-package }}
+          python3 -m pip install --break-system-packages "libclang==${{ inputs.libclang-version }}"
+
+      - if: ${{ inputs.run-configure }}
+        run: cmake -S . -B build/_snap ${{ inputs.configure-options }}
+
+      - if: ${{ inputs.run-configure && github.event_name == 'pull_request' }}
+        run: cmake -S base -B base/build/_snap ${{ inputs.configure-options }}
+
+      - run: |
+          python3 .github-shared-core/scripts/abi_snapshot.py generate \
+            --include-dir '${{ inputs.include-dir }}' \
+            --include-extra build/_snap/generated \
+            --std '${{ inputs.std }}' \
+            --clang '${{ inputs.clang-package }}' \
+            --output abi-head.json
+
+      - if: ${{ github.event_name == 'pull_request' }}
+        id: diff
+        run: |
+          set +e
+          {
+            python3 .github-shared-core/scripts/abi_snapshot.py generate \
+              --include-dir 'base/${{ inputs.include-dir }}' \
+              --include-extra base/build/_snap/generated \
+              --std '${{ inputs.std }}' \
+              --clang '${{ inputs.clang-package }}' \
+              --output abi-base.json \
+            && python3 .github-shared-core/scripts/abi_snapshot.py diff \
+              --old abi-base.json --new abi-head.json \
+              --summary-out required-bump.txt
+            echo "$?" > rc.txt
+          } 2>&1 | tee abi-diff.log
+          echo "status=$(cat rc.txt)" >> "$GITHUB_OUTPUT"
+          echo "required=$(cat required-bump.txt 2>/dev/null || echo none)" >> "$GITHUB_OUTPUT"
+
+      - if: ${{ github.event_name == 'pull_request' }}
+        id: guard
+        run: |
+          set +e
+          printf '%s' "$PR_BODY" > pr-body.txt
+          python3 .github-shared-core/scripts/abi_version_guard.py \
+            --required '${{ steps.diff.outputs.required }}' \
+            --title "$PR_TITLE" \
+            --body-file pr-body.txt \
+            2>&1 | tee version-guard.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - if: always()
+        run: |
+          mkdir -p report4 report5
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            cp abi-diff.log report4/log.txt 2>/dev/null || echo "(no log)" > report4/log.txt
+            status="success"; [ "${{ steps.diff.outputs.status }}" != "0" ] && status="failure"
+            leg="base...head (required: ${{ steps.diff.outputs.required }})"
+            printf '{"order": 4, "step": "ABI diff", "leg": "%s", "status": "%s"}\n' "$leg" "$status" > report4/meta.json
+
+            cp version-guard.log report5/log.txt 2>/dev/null || echo "(no log)" > report5/log.txt
+            gstatus="success"; [ "${{ steps.guard.outputs.status }}" != "0" ] && gstatus="failure"
+            printf '{"order": 5, "step": "Version-bump guard", "leg": "conventional commit (PR title)", "status": "%s"}\n' "$gstatus" > report5/meta.json
+          else
+            echo "Snapshot generated for ${GITHUB_REF_NAME} (no base to diff on this event)." > report4/log.txt
+            printf '{"order": 4, "step": "ABI diff", "leg": "snapshot only (%s)", "status": "success"}\n' "${{ github.event_name }}" > report4/meta.json
+          fi
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: abi-step-04-abi-diff
+          path: report4/
+          retention-days: 1
+
+      - if: ${{ always() && github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: abi-step-05-version-guard
+          path: report5/
+          retention-days: 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: abi-snapshot
+          path: abi-head.json
+          retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 7 }}
+
+      - if: >-
+          ${{ github.event_name == 'pull_request' &&
+              (steps.diff.outputs.status != '0' || steps.guard.outputs.status != '0') }}
+        run: exit 1
