@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/liara-engine/.github/compare/v0.2.0...v0.3.0) (2026-07-17)
+
+
+### Features
+
+* **abi:** ABI CI tools ([#8](https://github.com/liara-engine/.github/issues/8)) ([1fb4e77](https://github.com/liara-engine/.github/commit/1fb4e7761b8cf2764ea6746f72a8c9d5470d2003))
+
+
+### Bug Fixes
+
+* **docs:** update documentation hub link in README ([bdcc94f](https://github.com/liara-engine/.github/commit/bdcc94f282b62a60b5e2e2cb824185bec1bf627c))
+
 ## [0.2.0](https://github.com/liara-engine/.github/compare/v0.1.1...v0.2.0) (2026-07-11)
 
 
