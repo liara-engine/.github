@@ -26,6 +26,7 @@ Usable both in CI and locally, e.g.::
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import tempfile
@@ -35,7 +36,12 @@ from pathlib import Path
 # Warning surface applied to every configuration. Kept deliberately small for
 # the base; extend here (e.g. -Wshadow, -Wconversion, -Wc++-compat for C) as
 # the interface grows.
-COMMON_FLAGS = ["-fsyntax-only", "-Wall", "-Wextra", "-Wpedantic", "-Werror"]
+COMMON_FLAGS_GCC = ["-fsyntax-only", "-Wall", "-Wextra", "-Wpedantic", "-Werror"]
+
+# /Zs : Syntax check only (equivalent of -fsyntax-only)
+# /W4 : Warning level 4
+# /WX : Treat warnings as errors (equivalent of -Werror)
+COMMON_FLAGS_MSVC = ["/Zs", "/W4", "/WX"]
 
 
 @dataclass(frozen=True)
@@ -49,13 +55,30 @@ class Case:
     compiler: str       # compiler binary used
 
     @property
+    def is_msvc(self) -> bool:
+        """Helper to determine if we are invoking MSVC."""
+        binary_name = Path(self.compiler).stem.lower()
+        return binary_name == "cl"
+
+    @property
     def lang_std(self) -> str:
-        """The -std= value, e.g. 'c11' or 'c++20'."""
-        prefix = "c" if self.lang == "c" else "c++"
-        return f"{prefix}{self.std}"
+        """The standard flag formatted for the appropriate compiler."""
+        if self.is_msvc:
+            if self.lang == "c":
+                # MSVC supports C11 and C17. If 23 is requested, fallback to clatest or c17.
+                if self.std == "23":
+                    return "/std:clatest"
+                return f"/std:c{self.std}"
+            else:
+                if self.std == "23":
+                    return "/std:c++latest"
+                return f"/std:c++{self.std}"
+        else:
+            prefix = "c" if self.lang == "c" else "c++"
+            return f"-std={prefix}{self.std}"
 
     def __str__(self) -> str:
-        return f"{self.include}  [-std={self.lang_std}]  {self.compiler}"
+        return f"{self.include}  [{self.lang_std}]  {self.compiler}"
 
 
 def discover_headers(include_dir: Path) -> list[tuple[Path, str]]:
@@ -78,16 +101,30 @@ def make_tu(tmp: Path, include: str, lang: str) -> Path:
 
 def compile_case(case: Case, include_dir: Path, tu: Path) -> tuple[bool, str]:
     """Attempt one compilation. Returns (ok, stderr)."""
-    cmd = [
-        case.compiler,
-        "-x", case.lang,
-        f"-std={case.lang_std}",
-        *COMMON_FLAGS,
-        "-I", str(include_dir),
-        str(tu),
-    ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    return proc.returncode == 0, proc.stderr.strip()
+    if case.is_msvc:
+        # /TC forces C compilation, /TP forces C++ compilation
+        lang_flag = "/TC" if case.lang == "c" else "/TP"
+        cmd = [
+            case.compiler,
+            lang_flag,
+            case.lang_std,
+            *COMMON_FLAGS_MSVC,
+            f"/I{include_dir}",
+            str(tu),
+        ]
+    else:
+        cmd = [
+            case.compiler,
+            "-x", case.lang,
+            case.lang_std,
+            *COMMON_FLAGS_GCC,
+            "-I", str(include_dir),
+            str(tu),
+        ]
+
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        output = f"{proc.stdout}\n{proc.stderr}".strip()
+        return proc.returncode == 0, output
 
 
 def parse_standards(value: str) -> list[str]:
