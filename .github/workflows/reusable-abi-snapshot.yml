@@ -18,7 +18,7 @@ on:
       libclang-version:
         required: false
         type: string
-        default: '18.1.8'
+        default: '18.1.1'
       run-configure:
         required: false
         type: boolean
