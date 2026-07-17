@@ -104,22 +104,30 @@ jobs:
         run: exit 1
 
   layout-compile:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: gcc,   cc: gcc-14,   cxx: g++-14,     packages: 'gcc-14 g++-14' }
-          - { name: clang, cc: clang-18, cxx: clang++-18, packages: 'clang-18' }
+          - { name: gcc,   os: ubuntu-24.04,   cc: gcc-14,   cxx: g++-14,     packages: 'gcc-14 g++-14', is_msvc: false }
+          - { name: clang, os: ubuntu-24.04,   cc: clang-18, cxx: clang++-18, packages: 'clang-18',      is_msvc: false }
+          - { name: msvc,  os: windows-latest, cc: cl,       cxx: cl,         packages: '',              is_msvc: true }
     name: layout-compile (${{ matrix.name }})
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v6
 
-      - run: |
+      - if: ${{ !matrix.is_msvc }}
+        run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ${{ matrix.packages }}
+
+      - if: ${{ matrix.is_msvc }}
+        uses: ilammy/msvc-dev-cmd@v1
 
       - if: ${{ inputs.run-configure }}
         run: cmake -S . -B build/_layout_config ${{ inputs.configure-options }}
@@ -130,18 +138,33 @@ jobs:
           printf '#include "%s"\n' "$PWD/${{ inputs.golden-header }}" > layout_tu.src
           {
             rc=0
-            for std in $(echo '${{ inputs.c-standards }}' | tr ';' ' '); do
-              echo "== C c$std =="
-              ${{ matrix.cc }} -x c -std=c$std -fsyntax-only \
-                -Wall -Wextra -Wpedantic -Werror \
-                -I '${{ inputs.include-dir }}' layout_tu.src || rc=1
-            done
-            for std in $(echo '${{ inputs.cxx-standards }}' | tr ';' ' '); do
-              echo "== C++ c++$std =="
-              ${{ matrix.cxx }} -x c++ -std=c++$std -fsyntax-only \
-                -Wall -Wextra -Wpedantic -Werror \
-                -I '${{ inputs.include-dir }}' layout_tu.src || rc=1
-            done
+            if [ "${{ matrix.is_msvc }}" = "true" ]; then
+              for std in $(echo '${{ inputs.c-standards }}' | tr ';' ' '); do
+                if [ "$std" = "11" ] || [ "$std" = "17" ]; then
+                  echo "== C (MSVC) c$std =="
+                  cl.exe /TC /std:c$std /Zs /WX /W4 -I"${{ inputs.include-dir }}" layout_tu.src || rc=1
+                fi
+              done
+              for std in $(echo '${{ inputs.cxx-standards }}' | tr ';' ' '); do
+                std_flag="c++$std"
+                if [ "$std" = "23" ]; then std_flag="c++latest"; fi
+                echo "== C++ (MSVC) $std_flag =="
+                cl.exe /TP /std:$std_flag /Zs /WX /W4 -I"${{ inputs.include-dir }}" layout_tu.src || rc=1
+              done
+            else
+              for std in $(echo '${{ inputs.c-standards }}' | tr ';' ' '); do
+                echo "== C c$std =="
+                ${{ matrix.cc }} -x c -std=c$std -fsyntax-only \
+                  -Wall -Wextra -Wpedantic -Werror \
+                  -I '${{ inputs.include-dir }}' layout_tu.src || rc=1
+              done
+              for std in $(echo '${{ inputs.cxx-standards }}' | tr ';' ' '); do
+                echo "== C++ c++$std =="
+                ${{ matrix.cxx }} -x c++ -std=c++$std -fsyntax-only \
+                  -Wall -Wextra -Wpedantic -Werror \
+                  -I '${{ inputs.include-dir }}' layout_tu.src || rc=1
+              done
+            fi
             echo "$rc" > rc.txt
           } 2>&1 | tee layout-compile.log
           echo "status=$(cat rc.txt)" >> "$GITHUB_OUTPUT"
