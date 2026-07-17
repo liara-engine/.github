@@ -139,9 +139,8 @@ def snapshot(include_dir: Path, parse_args: list[str]) -> dict:
             elif cursor.kind == cindex.CursorKind.ENUM_DECL and cursor.is_definition():
                 constants = [(c.spelling, c.enum_value)
                              for c in cursor.get_children()
-                             if c.kind == cindex.CursorKind.ENUM_CONSTANT_DECL]
-                if cursor.spelling.startswith("LIARA_ABI_VERSION_"):
-                    continue
+                             if c.kind == cindex.CursorKind.ENUM_CONSTANT_DECL
+                             and not c.spelling.startswith("LIARA_ABI_VERSION_")]
                 if cursor.is_anonymous():
                     snap["enum_constants"].update(dict(constants))
                 else:
@@ -242,6 +241,8 @@ def diff_enums(diff: Diff, old: dict, new: dict) -> None:
 
 def diff_flat_values(diff: Diff, kind: str, old: dict, new: dict) -> None:
     for name in diff_dicts(diff, kind, old, new):
+        if name.startswith("LIARA_ABI_VERSION_"):
+            continue
         if old[name] != new[name]:
             diff.add("major", f"{kind} '{name}' changed "
                               f"'{old[name]}' -> '{new[name]}'")
