@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/liara-engine/.github/compare/v0.3.0...v0.3.1) (2026-07-17)
+
+
+### Bug Fixes
+
+* **abi:** allow exclusion of LIARA_ABI_VERSION_ macros in snapshot ([8d48ee6](https://github.com/liara-engine/.github/commit/8d48ee6c2dbcc2ea42fb93bbac1c1f4d6dea8ccf))
+
 ## [0.3.0](https://github.com/liara-engine/.github/compare/v0.2.0...v0.3.0) (2026-07-17)
 
 
