@@ -153,7 +153,7 @@ def at(cursor: cindex.Cursor, rule: str, message: str) -> Violation:
 
 def check_prefix(cursor: cindex.Cursor, out: list[Violation]) -> None:
     name = cursor.spelling
-    if not name or name.startswith("(unnamed"):
+    if not name or cursor.is_anonymous():
         return
     if cursor.kind == cindex.CursorKind.ENUM_CONSTANT_DECL:
         if not UPPER_SYMBOL_RE.match(name):
