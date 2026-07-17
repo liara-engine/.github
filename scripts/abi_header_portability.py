@@ -122,9 +122,9 @@ def compile_case(case: Case, include_dir: Path, tu: Path) -> tuple[bool, str]:
             str(tu),
         ]
 
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        output = f"{proc.stdout}\n{proc.stderr}".strip()
-        return proc.returncode == 0, output
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    output = f"{proc.stdout}\n{proc.stderr}".strip()
+    return proc.returncode == 0, output
 
 
 def parse_standards(value: str) -> list[str]:
