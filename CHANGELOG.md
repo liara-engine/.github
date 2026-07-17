@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/liara-engine/.github/compare/v0.3.2...v0.3.3) (2026-07-17)
+
+
+### Bug Fixes
+
+* **abi:** skip processing for LIARA_ABI_VERSION_ enums in diff ([b33207c](https://github.com/liara-engine/.github/commit/b33207ce94fa791eebdcbf5278153976f52a63e7))
+
 ## [0.3.2](https://github.com/liara-engine/.github/compare/v0.3.1...v0.3.2) (2026-07-17)
 
 
