@@ -135,7 +135,7 @@ jobs:
       - id: check
         run: |
           set +e
-          printf '#include "%s"\n' "$PWD/${{ inputs.golden-header }}" > layout_tu.src
+          printf '#include "%s"\n' "${{ inputs.golden-header }}" > layout_tu.src
           {
             rc=0
             if [ "${{ matrix.is_msvc }}" = "true" ]; then
@@ -156,13 +156,13 @@ jobs:
                 echo "== C c$std =="
                 ${{ matrix.cc }} -x c -std=c$std -fsyntax-only \
                   -Wall -Wextra -Wpedantic -Werror \
-                  -I '${{ inputs.include-dir }}' layout_tu.src || rc=1
+                  -I. -I '${{ inputs.include-dir }}' layout_tu.src || rc=1
               done
               for std in $(echo '${{ inputs.cxx-standards }}' | tr ';' ' '); do
                 echo "== C++ c++$std =="
                 ${{ matrix.cxx }} -x c++ -std=c++$std -fsyntax-only \
                   -Wall -Wextra -Wpedantic -Werror \
-                  -I '${{ inputs.include-dir }}' layout_tu.src || rc=1
+                  -I. -I '${{ inputs.include-dir }}' layout_tu.src || rc=1
               done
             fi
             echo "$rc" > rc.txt
