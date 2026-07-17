@@ -140,6 +140,8 @@ def snapshot(include_dir: Path, parse_args: list[str]) -> dict:
                 constants = [(c.spelling, c.enum_value)
                              for c in cursor.get_children()
                              if c.kind == cindex.CursorKind.ENUM_CONSTANT_DECL]
+                if cursor.spelling.startswith("LIARA_ABI_VERSION_"):
+                    continue
                 if cursor.is_anonymous():
                     snap["enum_constants"].update(dict(constants))
                 else:
