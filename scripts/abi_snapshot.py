@@ -228,6 +228,8 @@ def diff_structs(diff: Diff, old: dict, new: dict) -> None:
 def diff_enums(diff: Diff, old: dict, new: dict) -> None:
     for name in diff_dicts(diff, "enum", old, new):
         o, n = [tuple(c) for c in old[name]], [tuple(c) for c in new[name]]
+        if name.startswith("LIARA_ABI_VERSION_"):
+            continue
         if o == n:
             continue
         if len(n) > len(o) and n[:len(o)] == o:
