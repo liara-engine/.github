@@ -90,7 +90,7 @@ def collect_macros(header: Path, macros: dict) -> None:
         if not m:
             continue
         name, params, body = m.group(1), m.group(2), m.group(3)
-        if name.startswith("LIARA_PRIVATE_"):
+        if name.startswith("LIARA_PRIVATE_") or name.startswith("LIARA_ABI_VERSION_"):
             continue
         macros[name] = {"params": params or None,
                         "body": re.sub(r"\s+", " ", body).strip()}
