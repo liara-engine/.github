@@ -142,14 +142,14 @@ jobs:
               for std in $(echo '${{ inputs.c-standards }}' | tr ';' ' '); do
                 if [ "$std" = "11" ] || [ "$std" = "17" ]; then
                   echo "== C (MSVC) c$std =="
-                  cl.exe /TC /std:c$std /Zs /WX /W4 -I"${{ inputs.include-dir }}" layout_tu.src || rc=1
+                  cl.exe -TC -std:c$std -Zs -WX -W4 -I"${{ inputs.include-dir }}" layout_tu.src || rc=1
                 fi
               done
               for std in $(echo '${{ inputs.cxx-standards }}' | tr ';' ' '); do
                 std_flag="c++$std"
                 if [ "$std" = "23" ]; then std_flag="c++latest"; fi
                 echo "== C++ (MSVC) $std_flag =="
-                cl.exe /TP /std:$std_flag /Zs /WX /W4 -I"${{ inputs.include-dir }}" layout_tu.src || rc=1
+                cl.exe -TP -std:$std_flag -Zs -WX -W4 -I"${{ inputs.include-dir }}" layout_tu.src || rc=1
               done
             else
               for std in $(echo '${{ inputs.c-standards }}' | tr ';' ' '); do
