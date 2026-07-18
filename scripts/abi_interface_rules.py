@@ -187,7 +187,8 @@ def is_output_candidate(t: cindex.Type) -> bool:
         return False                                   # callback  -> input
     # liara_x_handle* (single pointer) is an input handle; the output form is
     # liara_x_handle** (pointer-to-pointer), whose pointee is itself a pointer.
-    if pointee.kind != cindex.TypeKind.POINTER and pointee.spelling.rstrip().endswith("_handle"):
+    if pointee.kind != cindex.TypeKind.POINTER and (pointee.spelling.rstrip().endswith("_handle") or
+                                                    pointee.spelling.rstrip().endswith("_handle_t")):
         return False
     return True
 
