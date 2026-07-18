@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.5](https://github.com/liara-engine/.github/compare/v0.3.4...v0.3.5) (2026-07-18)
+
+
+### Bug Fixes
+
+* **abi:** include handling for _handle_t suffix in pointer checks ([798c3ee](https://github.com/liara-engine/.github/commit/798c3ee1bdc372f272f8f2d1d257485b20609448))
+
 ## [0.3.4](https://github.com/liara-engine/.github/compare/v0.3.3...v0.3.4) (2026-07-17)
 
 
