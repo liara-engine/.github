@@ -14,7 +14,7 @@ on:
       output-branch:
         required: false
         type: string
-        default: gh-pages
+        default: cloudflare-pages
 
       # Generally `dev` or `X.Y.Z`
       deployment-version:
