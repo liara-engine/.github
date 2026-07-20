@@ -105,7 +105,7 @@ happen and are part of the project's normal mode of operation.
 - **Build**: CMake 3.29+ with presets, vcpkg in manifest mode.
 - **CI/CD**: GitHub Actions with reusable workflows, release-please.
 - **Documentation**: Doxygen for API, mdBook for users, hosted on
-  GitHub Pages.
+  Cloudflare Pages.
 
 ---
 
