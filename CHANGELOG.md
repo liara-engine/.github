@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/liara-engine/.github/compare/v0.3.5...v0.4.0) (2026-07-23)
+
+
+### Features
+
+* **abi:** add support for additional include directories in compilation in reusable-abi-header-portability.yml ([e48ad19](https://github.com/liara-engine/.github/commit/e48ad19edd29a64a5245f53b307f5b65bc8c42a0))
+* **abi:** add support for additional include directories in reusable-abi-layout-freeze.yml ([143fd72](https://github.com/liara-engine/.github/commit/143fd720937e03d5b3f3d23c3c4d2286de6e6e17))
+
+
+### Bug Fixes
+
+* **deploy:** update default output branch from gh-pages to cloudflare-pages ([174b309](https://github.com/liara-engine/.github/commit/174b30924f428e2747377ddf89144e56a70ab6e6))
+
 ## [0.3.5](https://github.com/liara-engine/.github/compare/v0.3.4...v0.3.5) (2026-07-18)
 
 
