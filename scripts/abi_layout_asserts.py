@@ -146,6 +146,7 @@ def main() -> int:
     parser.add_argument("--isystem", action="append", default=[])
     parser.add_argument("--libclang", default=None)
     parser.add_argument("--check", action="store_true", help="Compare against the committed --output instead of writing it.")
+    parser.add_argument("--include-extra", action="append", default=[], help="Additional -I dirs (e.g. the CMake-generated headers).")
     args = parser.parse_args()
 
     if args.libclang:
@@ -156,7 +157,13 @@ def main() -> int:
         print(f"::error::include directory not found: {include_dir}", file=sys.stderr)
         return 2
 
+    for extra in args.include_extra:
+        if not Path(extra).is_dir():
+            print(f"::error::extra include directory not found: {extra}", file=sys.stderr)
+            return 2
+
     parse_args = (["-x", "c++", f"-std={args.std}", "-I", str(include_dir)]
+                  + [f"-I{extra}" for extra in args.include_extra]
                   + builtin_include_args(args.clang, args.isystem))
     index = cindex.Index.create()
 

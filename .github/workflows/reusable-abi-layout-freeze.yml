@@ -78,6 +78,7 @@ jobs:
           set +e
           python3 .github-shared-core/scripts/abi_layout_asserts.py \
             --include-dir '${{ inputs.include-dir }}' \
+            --include-extra build/_layout_config/generated \
             --output '${{ inputs.golden-header }}' \
             --clang '${{ inputs.clang-package }}' \
             --check \
