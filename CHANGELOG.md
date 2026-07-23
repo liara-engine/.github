@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/liara-engine/.github/compare/v0.4.0...v0.4.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* **abi:** add support for additional include directories in reusable-abi-interface-rules.yml ([761a489](https://github.com/liara-engine/.github/commit/761a4892a69f4f6e4e15522f538a4ff34ed32138))
+
 ## [0.4.0](https://github.com/liara-engine/.github/compare/v0.3.5...v0.4.0) (2026-07-23)
 
 
