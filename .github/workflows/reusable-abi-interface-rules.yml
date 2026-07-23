@@ -86,6 +86,7 @@ jobs:
           set +e
           python3 .github-shared-core/scripts/abi_interface_rules.py \
             --include-dir '${{ inputs.include-dir }}' \
+            --include-extra 'build/_rules_config/generated' \
             --std '${{ inputs.std }}' \
             --prefix '${{ inputs.prefix }}' \
             --clang '${{ inputs.clang-package }}' \

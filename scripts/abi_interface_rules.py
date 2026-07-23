@@ -276,6 +276,7 @@ def main() -> int:
     parser.add_argument("--clang", default="clang", help="Compiler used to locate builtin headers.")
     parser.add_argument("--isystem", action="append", default=[],
                         help="Explicit system include dir(s) for builtin headers. Repeatable.")
+    parser.add_argument("--include-extra", action="append", default=[], help="Additional -I dirs (e.g. the CMake-generated headers).")
     args = parser.parse_args()
 
     if args.libclang:
@@ -287,6 +288,7 @@ def main() -> int:
         return 2
 
     parse_args = (["-x", "c++", f"-std={args.std}", "-I", str(include_dir)]
+                  + [f"-I{extra}" for extra in args.include_extra]
                   + builtin_include_args(args.clang, args.isystem))
     index = cindex.Index.create()
 
