@@ -94,6 +94,7 @@ jobs:
           set +e
           python3 .github-shared-core/scripts/abi_header_portability.py \
             --include-dir '${{ inputs.include-dir }}' \
+            --include-extra build/_portability_config/generated \
             --cc '${{ matrix.cc }}' \
             --cxx '${{ matrix.cxx }}' \
             --c-standards '${{ inputs.c-standards }}' \

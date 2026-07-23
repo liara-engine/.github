@@ -99,7 +99,7 @@ def make_tu(tmp: Path, include: str, lang: str) -> Path:
     return tu
 
 
-def compile_case(case: Case, include_dir: Path, tu: Path) -> tuple[bool, str]:
+def compile_case(case: Case, include_dir: Path, tu: Path, include_extra: list[str] = []) -> tuple[bool, str]:
     """Attempt one compilation. Returns (ok, stderr)."""
     if case.is_msvc:
         # /TC forces C compilation, /TP forces C++ compilation
@@ -110,6 +110,7 @@ def compile_case(case: Case, include_dir: Path, tu: Path) -> tuple[bool, str]:
             case.lang_std,
             *COMMON_FLAGS_MSVC,
             f"/I{include_dir}",
+            *([f"/I{extra}" for extra in include_extra]),
             str(tu),
         ]
     else:
@@ -119,6 +120,7 @@ def compile_case(case: Case, include_dir: Path, tu: Path) -> tuple[bool, str]:
             case.lang_std,
             *COMMON_FLAGS_GCC,
             "-I", str(include_dir),
+            *([f"-I{extra}" for extra in include_extra]),
             str(tu),
         ]
 
@@ -141,12 +143,19 @@ def main() -> int:
                         help="Semicolon-separated C standards.")
     parser.add_argument("--cxx-standards", default="17;20;23",
                         help="Semicolon-separated C++ standards.")
+    parser.add_argument("--include-extra", action="append", default=[],
+                     help="Additional -I dirs (e.g. the CMake-generated headers).")
     args = parser.parse_args()
 
     include_dir: Path = args.include_dir.resolve()
     if not include_dir.is_dir():
         print(f"::error::include directory not found: {include_dir}", file=sys.stderr)
         return 2
+
+    for extra in args.include_extra:
+        if not Path(extra).is_dir():
+            print(f"::error::extra include directory not found: {extra}", file=sys.stderr)
+            return 2
 
     c_stds = parse_standards(args.c_standards)
     cxx_stds = parse_standards(args.cxx_standards)
@@ -168,7 +177,7 @@ def main() -> int:
         tmp = Path(td)
         for case in cases:
             tu = make_tu(tmp, case.include, case.lang)
-            ok, stderr = compile_case(case, include_dir, tu)
+            ok, stderr = compile_case(case, include_dir, tu, args.include_extra)
             print(f"[{'ok' if ok else 'FAIL'}] {case}")
             if not ok:
                 failures.append((case, stderr))
