@@ -81,8 +81,9 @@ describes the workflow.
 
 Liara is in **Phase 0**: the bootstrap phase, where the
 infrastructure (repositories, CI, documentation, tooling) is being
-put in place. No engine code has been written yet under this
-organization; the project is still defining itself.
+put in place.
+Only bootstrap/test code exists so far; no feature code under the
+versioned milestones has been written yet.
 
 The roadmap targets:
 
@@ -105,7 +106,7 @@ happen and are part of the project's normal mode of operation.
 - **Build**: CMake 3.29+ with presets, vcpkg in manifest mode.
 - **CI/CD**: GitHub Actions with reusable workflows, release-please.
 - **Documentation**: Doxygen for API, mdBook for users, hosted on
-  Cloudflare Pages.
+  Cloudflare Workers.
 
 ---
 
