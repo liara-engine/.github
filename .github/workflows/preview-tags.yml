@@ -23,7 +23,7 @@ jobs:
           commit_sha: ${{ github.event.pull_request.head.sha }}
           force_push_tag: true
 
-      - uses: marocchino/sticky-pull-request-comment@v2
+      - uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           message: |
             ## Preview Tag

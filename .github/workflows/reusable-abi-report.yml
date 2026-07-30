@@ -40,7 +40,7 @@ jobs:
             --output comment.md
 
       - name: Post sticky comment
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           header: abi-pipeline
           path: comment.md
