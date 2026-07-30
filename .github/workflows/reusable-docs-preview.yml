@@ -89,7 +89,7 @@ jobs:
           git push origin HEAD:"${{ inputs.output-branch }}"
 
       - name: Comment preview URL
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           header: docs-preview
           message: |

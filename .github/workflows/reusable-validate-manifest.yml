@@ -135,7 +135,7 @@ jobs:
             fi
 
       - if: always() && github.event.pull_request != null
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           path: comment.md
           header: 'validate-manifest'
