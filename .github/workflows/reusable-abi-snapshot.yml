@@ -44,15 +44,15 @@ jobs:
       PR_BODY: ${{ github.event.pull_request.body }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           repository: '${{ github.repository_owner }}/.github'
           ref: '${{ inputs.github-repo-version }}'
