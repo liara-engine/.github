@@ -116,7 +116,7 @@ jobs:
 
       - name: Upload report fragment
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: abi-step-01-header-portability-${{ matrix.name }}
           path: report/
