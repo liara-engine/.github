@@ -19,7 +19,7 @@ jobs:
       patch: ${{ steps.version-parse.outputs.patch }}
 
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release
         with:
           token: ${{ secrets.ORG_RELEASE_PLEASE_TOKEN }}
