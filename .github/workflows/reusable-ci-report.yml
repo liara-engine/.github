@@ -42,14 +42,6 @@ jobs:
           path: 'reports'
         continue-on-error: true
 
-      # TODO: Convert all workflows to use the new artifact pattern and remove this legacy support.
-      # Legacy support for old artifact names, to be removed in the future.
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: 'abi-step-*'
-          path: 'reports'
-        continue-on-error: true
-
       - run: |
           python3 .github-shared-core/scripts/ci_report.py \
             --reports-dir reports \
