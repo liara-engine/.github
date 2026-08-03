@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Render the ABI pipeline sticky PR comment from per-step artifacts.
+"""Render the CI pipeline sticky PR comment from per-step artifacts.
 
-Each step of the ABI pipeline uploads one artifact per matrix leg, laid out as::
+Each step of the CI pipeline uploads one artifact per matrix leg, laid out as::
 
     <reports-dir>/<artifact-name>/
         meta.json   # {"order": 1, "step": "Header portability", "leg": "...", "status": "success|failure"}
@@ -83,17 +83,17 @@ def truncate(log: str) -> str:
     return "... (truncated, see the full run)\n" + log[-MAX_LOG_CHARS:]
 
 
-def render(steps: list[Step], run_url: str) -> str:
-    out: list[str] = ["## ABI pipeline", ""]
+def render(title: str, steps: list[Step], run_url: str) -> str:
+    out: list[str] = [f"## {title}", ""]
 
     if not steps:
-        out += ["No ABI checks reported for this run.", "",
+        out += ["No CI checks reported for this run.", "",
                 f"<sub>[Full run]({run_url}) - updates automatically on each push.</sub>"]
         return "\n".join(out)
 
     failing = [s for s in steps if not s.ok]
     headline = (f"**{len(failing)} check(s) need attention.**"
-                if failing else "**All ABI checks passed.**")
+                if failing else "**All CI checks passed.**")
     out += [f"{headline} - [full run]({run_url})", ""]
 
     out += ["| Step | Result |", "| --- | :---: |"]
@@ -116,14 +116,15 @@ def render(steps: list[Step], run_url: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Render the ABI pipeline sticky PR comment.")
+    parser = argparse.ArgumentParser(description="Render the CI pipeline sticky PR comment.")
     parser.add_argument("--reports-dir", required=True, type=Path)
     parser.add_argument("--run-url", required=True)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--title", default="CI pipeline report")
     args = parser.parse_args()
 
     steps = load_steps(args.reports_dir) if args.reports_dir.is_dir() else []
-    body = render(steps, args.run_url)
+    body = render(args.title, steps, args.run_url)
     args.output.write_text(body + "\n", encoding="utf-8")
     print(body)
     return 0
