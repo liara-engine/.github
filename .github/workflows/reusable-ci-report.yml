@@ -33,6 +33,7 @@ jobs:
         with:
           repository: '${{ github.repository_owner }}/.github'
           ref: '${{ inputs.github-repo-version }}'
+          sparse-checkout: 'scripts/'
           path: '.github-shared-core'
 
       - uses: actions/download-artifact@v8

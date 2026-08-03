@@ -103,7 +103,7 @@ def render(title: str, steps: list[Step], run_url: str) -> str:
     for s in steps:
         open_attr = " open" if not s.ok else ""
         out += [f"<details{open_attr}>", f"<summary>{s.order}. {s.name} &mdash; {s.icon}</summary>", ""]
-        for leg in sorted(step.legs, key=lambda leg: leg.name):
+        for leg in sorted(s.legs, key=lambda leg: leg.name):
             if leg.status == "success":
                 out.append(f"- **{leg.name}** &mdash; {leg.icon}" + (f" &middot; {leg.summary}" if leg.summary else ""))
             else:
@@ -124,7 +124,7 @@ def main() -> int:
     args = parser.parse_args()
 
     steps = load_steps(args.reports_dir) if args.reports_dir.is_dir() else []
-    body = render(args.title, steps, args.run_url)
+    body = render(args.title, [step for _, step in steps.items()], args.run_url)
     args.output.write_text(body + "\n", encoding="utf-8")
     print(body)
     return 0
