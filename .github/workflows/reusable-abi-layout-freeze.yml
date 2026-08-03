@@ -190,7 +190,7 @@ jobs:
         run: |
           bash .github-shared-core/scripts/report_fragment.sh \
             --section 3 --section-name 'ABI Rules' \
-            --step 3 --step-name 'Layout freeze compile' \
+            --step 4 --step-name 'Layout freeze compile' \
             --leg "$LEG" \
             --status '${{ steps.check.outputs.status }}' \
             --log layout-compile.log \

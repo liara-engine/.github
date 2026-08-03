@@ -116,7 +116,7 @@ jobs:
         run: |
           bash .github-shared-core/scripts/report_fragment.sh \
             --section 3 --section-name 'ABI Rules' \
-            --step 4 --step-name 'ABI diff' \
+            --step 5 --step-name 'ABI diff' \
             --leg "$LEG" \
             --status '${{ steps.check.outputs.status }}' \
             --log abi-diff.log \
@@ -129,7 +129,7 @@ jobs:
         run: |
           bash .github-shared-core/scripts/report_fragment.sh \
             --section 3 --section-name 'ABI Rules' \
-            --step 5 --step-name 'Version-bump guard' \
+            --step 6 --step-name 'Version-bump guard' \
             --leg "$LEG" \
             --status '${{ steps.guard.outputs.status }}' \
             --log version-guard.log \
