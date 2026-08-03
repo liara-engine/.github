@@ -69,6 +69,7 @@ jobs:
         with:
           repository: '${{ github.repository_owner }}/.github'
           ref: '${{ inputs.github-repo-version }}'
+          sparse-checkout: 'scripts/'
           path: '.github-shared-core'
 
       - run: |
@@ -93,22 +94,24 @@ jobs:
             2>&1 | tee interface-rules.log
           echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare report fragment
-        if: always()
+      - if: always()
+        shell: bash
+        env:
+          LEG: 'libclang (${{ inputs.clang-package }})'
         run: |
-          mkdir -p report
-          cp interface-rules.log report/log.txt 2>/dev/null || echo "(no log captured)" > report/log.txt
-          status="success"
-          [ "${{ steps.check.outputs.status }}" != "0" ] && status="failure"
-          cat > report/meta.json << EOF
-          {"order": 2, "step": "Interface rules", "leg": "libclang (${{ inputs.clang-package }})", "status": "$status"}
-          EOF
+          .github-shared-core/scripts/report_fragment.sh \
+            --section 3 --section-name 'ABI Rules' \
+            --step 2 --step-name 'Interface rules' \
+            --leg "$LEG" \
+            --status '${{ steps.check.outputs.status }}' \
+            --log interface-rules.log \
+            --out "ci-report-interface-rules"
 
       - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: abi-step-02-interface-rules
-          path: report/
+          name: ci-report-interface-rules
+          path: ci-report-interface-rules/
           retention-days: 1
 
       - if: ${{ steps.check.outputs.status != '0' }}
