@@ -62,28 +62,21 @@ jobs:
           sudo apt-get install -y --no-install-recommends clang-format-18
           sudo ln -sf /usr/bin/clang-format-18 /usr/local/bin/clang-format
 
-      - id: find-files
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t FILES < <(eval "git ls-files -- ${{ inputs.source-globs }}" \
-                               | grep -Ev '${{ inputs.exclude-regex }}' || true)
-
-          echo "Checking ${#FILES[@]} file(s)."
-          printf '%s\n' "${FILES[@]}" > files.txt
-
       - id: format
         shell: bash
         run: |
           set +e
-          mapfile -t FILES < files.txt
+          mapfile -t FILES < <(eval "git ls-files -- ${{ inputs.source-globs }}" \
+                               | grep -Ev '${{ inputs.exclude-regex }}' || true)
 
           if [ ${#FILES[@]} -eq 0 ]; then
             echo "No source files to check."
+            echo "status=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          clang-format --dry-run --Werror ${FILES[@]} 2>&1 | tee clang-format.log
+          echo "Checking ${#FILES[@]} file(s)."
+          clang-format --dry-run --Werror "${FILES[@]}" 2>&1 | tee clang-format.log
           echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - if: always()
@@ -136,10 +129,10 @@ jobs:
         working-directory: _root/workspace
         run: cmake --build --preset '${{ inputs.configure-preset }}'
 
-      - id: prepare-tus
+      - id: tidy
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           MODULE_DIR="_root/workspace/${{ inputs.module }}"
           [ "${{ inputs.module }}" = "liara" ] && MODULE_DIR="_root"
 
@@ -148,6 +141,7 @@ jobs:
 
           if [ ${#TUS[@]} -eq 0 ]; then
             echo "No translation unit in this repository; nothing for clang-tidy."
+            echo "status=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -155,20 +149,6 @@ jobs:
           for tu in "${TUS[@]}"; do
             PATTERNS+=("$(printf '%s/%s' "$MODULE_DIR" "$tu" | sed 's/[.[\*^$]/\\&/g')$")
           done
-          
-          echo "Checking ${#TUS[@]} translation unit(s)."
-          printf '%s\n' "${PATTERNS[@]}" > patterns.txt
-
-      - id: tidy
-        shell: bash
-        run: |
-          set +e
-          mapfile -t PATTERNS < patterns.txt
-
-          if [ ${#PATTERNS[@]} -eq 0 ]; then
-            echo "No translation units to check."
-            exit 0
-          fi
 
           run-clang-tidy -quiet -p "_root/workspace/build/${{ inputs.configure-preset }}" "${PATTERNS[@]}" 2>&1 | tee clang-tidy.log
           echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
