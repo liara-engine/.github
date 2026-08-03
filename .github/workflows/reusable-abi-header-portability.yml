@@ -108,7 +108,7 @@ jobs:
         env:
           LEG: '${{ matrix.name }} (${{ matrix.cc }} / ${{ matrix.cxx }})'
         run: |
-          .github-shared-core/scripts/report_fragment.sh \
+          bash .github-shared-core/scripts/report_fragment.sh \
             --section 3 --section-name 'ABI Rules' \
             --step 1 --step-name 'Header portability' \
             --leg "$LEG" \

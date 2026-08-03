@@ -114,7 +114,7 @@ jobs:
         env:
           LEG: 'base...head (required: ${{ steps.diff.outputs.required }})'
         run: |
-          .github-shared-core/scripts/report_fragment.sh \
+          bash .github-shared-core/scripts/report_fragment.sh \
             --section 3 --section-name 'ABI Rules' \
             --step 4 --step-name 'ABI diff' \
             --leg "$LEG" \
@@ -127,7 +127,7 @@ jobs:
         env:
           LEG: 'conventional commit (PR title)'
         run: |
-          .github-shared-core/scripts/report_fragment.sh \
+          bash .github-shared-core/scripts/report_fragment.sh \
             --section 3 --section-name 'ABI Rules' \
             --step 5 --step-name 'Version-bump guard' \
             --leg "$LEG" \

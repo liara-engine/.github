@@ -99,7 +99,7 @@ jobs:
         env:
           LEG: 'libclang (${{ inputs.clang-package }})'
         run: |
-          .github-shared-core/scripts/report_fragment.sh \
+          bash .github-shared-core/scripts/report_fragment.sh \
             --section 3 --section-name 'ABI Rules' \
             --step 2 --step-name 'Interface rules' \
             --leg "$LEG" \
