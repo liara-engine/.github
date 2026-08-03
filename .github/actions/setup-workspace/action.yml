@@ -1,0 +1,125 @@
+name: 'Set up the Liara workspace'
+
+description: >
+  Assembles a workspace superbuild driven by the meta repository, with the calling repository
+  checked out in place of the clone the bootstrap script would otherwise make. This is the same
+  path a developer runs locally, which is the point: the CI does not get its own build model.
+
+inputs:
+  module:
+    description: 'Name of the calling repository: liara, liara-interfaces, liara-core...'
+    required: true
+  configure-preset:
+    description: 'CMake configure preset. Leave empty to assemble the workspace without configuring.'
+    required: false
+    default: ''
+  toolchain:
+    description: 'Linux toolchain to expose as plain `gcc`/`clang` on PATH: gcc, clang, or empty.'
+    required: false
+    default: ''
+  meta-ref:
+    description: 'Ref of the meta repository driving the workspace.'
+    required: false
+    default: 'main'
+
+outputs:
+  workspace:
+    description: 'Absolute path to the assembled workspace directory.'
+    value: ${{ steps.paths.outputs.workspace }}
+  build-dir:
+    description: 'Absolute path to the configured build tree, empty if configure-preset was empty.'
+    value: ${{ steps.paths.outputs.build-dir }}
+
+runs:
+  using: composite
+
+  steps:
+    - if: inputs.module == 'liara'
+      uses: actions/checkout@v7
+      with:
+        path: _root
+
+    - if: inputs.module != 'liara'
+      uses: actions/checkout@v7
+      with:
+        repository: '${{ github.repository_owner }}/liara'
+        ref: '${{ inputs.meta-ref }}'
+        path: _root
+
+    - if: inputs.module != 'liara'
+      uses: actions/checkout@v7
+      with:
+        path: _root/workspace/${{ inputs.module }}
+
+    - id: paths
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "workspace=${GITHUB_WORKSPACE}/_root/workspace" >> "$GITHUB_OUTPUT"
+
+    # The presets name the compilers as plain `gcc` and `clang`, so CI has to make those names
+    # resolve to the required versions rather than to whatever the runner image defaults to.
+    # Symlinks in a PATH entry of our own do this without touching the system alternatives.
+    - if: runner.os == 'Linux'
+      shell: bash
+      env:
+        TOOLCHAIN: ${{ inputs.toolchain }}
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        case "$TOOLCHAIN" in
+          gcc)   sudo apt-get install -y --no-install-recommends gcc-14 g++-14 ;;
+          clang) sudo apt-get install -y --no-install-recommends clang-18 clang-tools-18 ;;
+          *)     sudo apt-get install -y --no-install-recommends gcc-14 g++-14 clang-18 clang-tools-18 ;;
+        esac
+        sudo apt-get install -y --no-install-recommends ninja-build mold
+
+        mkdir -p "$HOME/.liara-toolchain"
+        [ -x /usr/bin/gcc-14 ]     && ln -sf /usr/bin/gcc-14     "$HOME/.liara-toolchain/gcc"
+        [ -x /usr/bin/g++-14 ]     && ln -sf /usr/bin/g++-14     "$HOME/.liara-toolchain/g++"
+        [ -x /usr/bin/clang-18 ]   && ln -sf /usr/bin/clang-18   "$HOME/.liara-toolchain/clang"
+        [ -x /usr/bin/clang++-18 ] && ln -sf /usr/bin/clang++-18 "$HOME/.liara-toolchain/clang++"
+        echo "$HOME/.liara-toolchain" >> "$GITHUB_PATH"
+
+    # Optional in the toolchain, not optional in CI: without them the cross-language tests are
+    # silently not registered and ctest reports success without having checked C callability
+    # from anything but C and C++.
+    - if: runner.os == 'Linux'
+      uses: mlugg/setup-zig@v2
+      with:
+        version: 0.14.0
+
+    - if: runner.os == 'Linux'
+      uses: dtolnay/rust-toolchain@stable
+
+    - shell: bash
+      run: |
+        set -euo pipefail
+        echo "VCPKG_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "$GITHUB_ENV"
+        echo "VCPKG_DEFAULT_BINARY_CACHE=${RUNNER_TEMP}/vcpkg-cache" >> "$GITHUB_ENV"
+        mkdir -p "${RUNNER_TEMP}/vcpkg-cache"
+
+    # Assemble only: the other modules are cloned from their default branches, the superbuild
+    # CMakeLists, the merged manifest and the presets are generated, and nothing is configured
+    # yet — the cache below has to be restored first.
+    - shell: bash
+      working-directory: _root
+      run: python3 scripts/liara.py setup --no-pull --no-configure
+
+    - uses: actions/cache@v6
+      with:
+        path: ${{ runner.temp }}/vcpkg-cache
+        key: vcpkg-${{ runner.os }}-${{ inputs.configure-preset }}-${{ hashFiles('_root/workspace/vcpkg.json', '_root/workspace/vcpkg-configuration.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-${{ inputs.configure-preset }}-
+          vcpkg-${{ runner.os }}-
+
+    - if: inputs.configure-preset != ''
+      shell: bash
+      working-directory: _root/workspace
+      run: cmake --preset '${{ inputs.configure-preset }}'
+
+    - if: inputs.configure-preset != ''
+      id: build-dir
+      shell: bash
+      run: echo "build-dir=${GITHUB_WORKSPACE}/_root/workspace/build/${{ inputs.configure-preset }}" >> "$GITHUB_OUTPUT"
