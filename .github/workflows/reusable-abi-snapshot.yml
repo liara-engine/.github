@@ -118,7 +118,7 @@ jobs:
             --section 3 --section-name 'ABI Rules' \
             --step 5 --step-name 'ABI diff' \
             --leg "$LEG" \
-            --status '${{ steps.check.outputs.status }}' \
+            --status '${{ steps.diff.outputs.status }}' \
             --log abi-diff.log \
             --out "ci-report-abi-diff"
 
