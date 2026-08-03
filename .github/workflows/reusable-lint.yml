@@ -81,7 +81,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          clang-format --dry-run --Werror "${{ steps.find-files.outputs.files }}" | tee clang-format.log
+          clang-format --dry-run --Werror "${{ steps.find-files.outputs.files }}" 2>&1 | tee clang-format.log
           echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - if: always()
@@ -89,7 +89,7 @@ jobs:
         run: |
           bash .github-shared-core/scripts/report_fragment.sh \
             --section 2 --section-name 'Lint' \
-            --step 1 --step-name 'CLang Format' \
+            --step 1 --step-name 'Clang Format' \
             --leg "clang-format" \
             --status '${{ steps.format.outputs.status }}' \
             --log clang-format.log \
@@ -161,7 +161,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          run-clang-tidy -quiet -p "_root/workspace/build/${{ inputs.configure-preset }}" "${{ steps.prepare-tus.outputs.patterns }}" | tee clang-tidy.log
+          run-clang-tidy -quiet -p "_root/workspace/build/${{ inputs.configure-preset }}" "${{ steps.prepare-tus.outputs.patterns }}" 2>&1 | tee clang-tidy.log
           echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - if: always()
@@ -169,7 +169,7 @@ jobs:
         run: |
           bash .github-shared-core/scripts/report_fragment.sh \
             --section 2 --section-name 'Lint' \
-            --step 2 --step-name 'CLang Tidy' \
+            --step 2 --step-name 'Clang Tidy' \
             --leg "clang-tidy" \
             --status '${{ steps.tidy.outputs.status }}' \
             --log clang-tidy.log \
