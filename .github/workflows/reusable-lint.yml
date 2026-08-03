@@ -1,0 +1,186 @@
+name: reusable-lint
+
+# clang-format and clang-tidy, scoped to the calling repository's own sources — the workspace is
+# assembled only because clang-tidy needs a compilation database, not because the other modules
+# are under review here.
+
+on:
+  workflow_call:
+    inputs:
+      module:
+        required: true
+        type: string
+
+      configure-preset:
+        description: 'Preset used to produce compile_commands.json. Must be a Linux (Ninja) preset.'
+        required: false
+        type: string
+        default: 'linux-debug-clang'
+
+      source-globs:
+        description: 'Space-separated git pathspecs selecting the files to check.'
+        required: false
+        type: string
+        default: "'*.c' '*.h' '*.cpp' '*.hpp' '*.tpp'"
+
+      exclude-regex:
+        description: 'Files matching this regex are left alone.'
+        required: false
+        type: string
+        default: '(^|/)[^/]*\.generated\.h$'
+
+      run-tidy:
+        description: 'Set to false for a repository with no translation unit of its own.'
+        required: false
+        type: boolean
+        default: true
+
+      github-repo-version:
+        required: false
+        type: string
+        default: 'main'
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ inputs.github-repo-version }}'
+          sparse-checkout: 'scripts/'
+          path: '.github-shared-core'
+
+      - shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-format-18
+          sudo ln -sf /usr/bin/clang-format-18 /usr/local/bin/clang-format
+
+      - id: find-files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t FILES < <(eval "git ls-files -- ${{ inputs.source-globs }}" \
+                               | grep -Ev '${{ inputs.exclude-regex }}' || true)
+
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "No source files to check."
+            exit 0
+          fi
+
+          echo "Checking ${#FILES[@]} file(s)."
+          echo "files=${FILES[@]}" >> $GITHUB_OUTPUT
+
+      - id: format
+        shell: bash
+        run: |
+          set +e
+          clang-format --dry-run --Werror "${{ steps.find-files.outputs.files }}" | tee clang-format.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - if: always()
+        shell: bash
+        run: |
+          bash .github-shared-core/scripts/report_fragment.sh \
+            --section 2 --section-name 'Lint' \
+            --step 1 --step-name 'CLang Format' \
+            --leg "clang-format" \
+            --status '${{ steps.format.outputs.status }}' \
+            --log clang-format.log \
+            --out "ci-report-clang-format"
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-report-clang-format
+          path: ci-report-clang-format/
+          retention-days: 1
+
+      - if: ${{ steps.format.outputs.status != '0' }}
+        run: exit 1
+
+  tidy:
+    if: ${{ inputs.run-tidy }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ inputs.github-repo-version }}'
+          path: .github-shared-core
+
+      - uses: ./.github-shared-core/.github/actions/setup-workspace
+        with:
+          module: ${{ inputs.module }}
+          configure-preset: ${{ inputs.configure-preset }}
+          toolchain: clang
+
+      - shell: bash
+        run: |
+          sudo apt-get install -y --no-install-recommends clang-tidy-18
+          sudo ln -sf /usr/bin/clang-tidy-18     /usr/local/bin/clang-tidy
+          sudo ln -sf /usr/bin/run-clang-tidy-18 /usr/local/bin/run-clang-tidy
+
+      - shell: bash
+        working-directory: _root/workspace
+        run: cmake --build --preset '${{ inputs.configure-preset }}'
+
+      - id: prepare-tus
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODULE_DIR="_root/workspace/${{ inputs.module }}"
+          [ "${{ inputs.module }}" = "liara" ] && MODULE_DIR="_root"
+
+          mapfile -t TUS < <(git -C "$MODULE_DIR" ls-files -- '*.c' '*.cpp' \
+                             | grep -Ev '${{ inputs.exclude-regex }}' || true)
+
+          if [ ${#TUS[@]} -eq 0 ]; then
+            echo "No translation unit in this repository; nothing for clang-tidy."
+            exit 0
+          fi
+
+          PATTERNS=()
+          for tu in "${TUS[@]}"; do
+            PATTERNS+=("$(printf '%s/%s' "$MODULE_DIR" "$tu" | sed 's/[.[\*^$]/\\&/g')$")
+          done
+          
+          echo "Checking ${#TUS[@]} translation unit(s)."
+          echo "patterns=${PATTERNS[@]}" >> $GITHUB_OUTPUT
+
+      - id: tidy
+        shell: bash
+        run: |
+          set +e
+          run-clang-tidy -quiet -p "_root/workspace/build/${{ inputs.configure-preset }}" "${{ steps.prepare-tus.outputs.patterns }}" | tee clang-tidy.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - if: always()
+        shell: bash
+        run: |
+          bash .github-shared-core/scripts/report_fragment.sh \
+            --section 2 --section-name 'Lint' \
+            --step 2 --step-name 'CLang Tidy' \
+            --leg "clang-tidy" \
+            --status '${{ steps.tidy.outputs.status }}' \
+            --log clang-tidy.log \
+            --out "ci-report-clang-tidy"
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-report-clang-tidy
+          path: ci-report-clang-tidy/
+          retention-days: 1
+
+      - if: ${{ steps.tidy.outputs.status != '0' }}
+        run: exit 1
