@@ -112,7 +112,7 @@ jobs:
       - if: always()
         shell: bash
         env:
-          LEG: 'base...head (required: ${{ steps.diff.outputs.required || "none" }})'
+          LEG: 'base...head (required: ${{ steps.diff.outputs.required || none }})'
         run: |
           .github-shared-core/scripts/report_fragment.sh \
             --section 3 --section-name 'ABI Rules' \
