@@ -32,6 +32,7 @@ class Leg:
     name: str
     status: str
     log: str
+    summary: str = ""
 
     @property
     def icon(self) -> str:
@@ -53,16 +54,26 @@ class Step:
         return PASS_ICON if self.ok else FAIL_ICON
 
 
-def load_steps(reports_dir: Path) -> list[Step]:
-    steps: dict[tuple[int, str], Step] = {}
+def load_steps(reports_dir: Path) -> dict[tuple[int, str], list[Step]]:
+    """Group fragments by section, then by step, accepting both meta.json shapes."""
+    sections: dict[tuple[int, str], dict[tuple[int, str], Step]] = {}
     for meta_path in sorted(reports_dir.glob("*/meta.json")):
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        order, name = int(meta["order"]), str(meta["step"])
+
+        if "section" in meta:
+            sec_key = (int(meta["section"]["order"]), str(meta["section"]["name"]))
+            step_key = (int(meta["step"]["order"]), str(meta["step"]["name"]))
+        else:
+            # Legacy flat shape
+            sec_key = (1, "ABI")
+            step_key = (int(meta["order"]), str(meta["step"]))
+
         log_path = meta_path.with_name("log.txt")
         log = log_path.read_text(encoding="utf-8") if log_path.exists() else ""
-        step = steps.setdefault((order, name), Step(order=order, name=name))
-        step.legs.append(Leg(str(meta.get("leg", "")), str(meta["status"]), log))
-    return [steps[key] for key in sorted(steps)]
+        step = sections.setdefault(sec_key, {}).setdefault(step_key, Step(order=step_key[0], name=step_key[1]))
+        step.legs.append(Leg(str(meta.get("leg", "")), str(meta["status"]), log, str(meta.get("summary", ""))))
+
+    return {sec: [steps[k] for k in sorted(steps)] for sec, steps in sorted(sections.items())}
 
 
 def truncate(log: str) -> str:
@@ -91,11 +102,13 @@ def render(steps: list[Step], run_url: str) -> str:
 
     for s in steps:
         open_attr = " open" if not s.ok else ""
-        out += [f"<details{open_attr}>",
-                f"<summary>{s.order}. {s.name} &mdash; {s.icon}</summary>", ""]
-        for leg in sorted(s.legs, key=lambda leg: leg.name):
-            label = f"**{leg.name}**" if leg.name else "**log**"
-            out += [f"{label} &mdash; {leg.icon}", "", "```", truncate(leg.log), "```", ""]
+        out += [f"<details{open_attr}>", f"<summary>{s.order}. {s.name} &mdash; {s.icon}</summary>", ""]
+        for leg in sorted(step.legs, key=lambda leg: leg.name):
+            if leg.status == "success":
+                out.append(f"- **{leg.name}** &mdash; {leg.icon}" + (f" &middot; {leg.summary}" if leg.summary else ""))
+            else:
+                out += [f"- **{leg.name}** &mdash; {leg.icon}" + (f" &middot; {leg.summary}" if leg.summary else ""),
+                        "", "```", truncate(leg.log), "```", ""]
         out += ["</details>", ""]
 
     out.append("<sub>Updates automatically on each push to this PR.</sub>")

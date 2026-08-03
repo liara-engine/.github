@@ -1,0 +1,62 @@
+name: reusable-ci-report
+
+on:
+  workflow_call:
+    inputs:
+      title:
+        required: false
+        type: string
+        default: 'CI report'
+      header:
+        description: 'Sticky comment header. One header per report, or they overwrite each other.'
+        required: false
+        type: string
+        default: 'ci-report'
+      artifact-pattern:
+        required: false
+        type: string
+        default: 'ci-report-*'
+      github-repo-version:
+        required: false
+        type: string
+        default: 'main'
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ inputs.github-repo-version }}'
+          path: '.github-shared-core'
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: '${{ inputs.artifact-pattern }}'
+          path: 'reports'
+        continue-on-error: true
+
+      # TODO: Convert all workflows to use the new artifact pattern and remove this legacy support.
+      # Legacy support for old artifact names, to be removed in the future.
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: 'abi-step-*'
+          path: 'reports'
+        continue-on-error: true
+
+      - run: |
+          python3 .github-shared-core/scripts/ci_report.py \
+            --reports-dir reports \
+            --title '${{ inputs.title }}' \
+            --run-url '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}' \
+            --output comment.md
+
+      - uses: marocchino/sticky-pull-request-comment@v3.0.5
+        with:
+          header: '${{ inputs.header }}'
+          path: comment.md
