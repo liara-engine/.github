@@ -83,7 +83,7 @@ jobs:
             exit 0
           fi
 
-          clang-format --dry-run --Werror "${FILES[@]}" 2>&1 | tee clang-format.log
+          clang-format --dry-run --Werror ${FILES[@]} 2>&1 | tee clang-format.log
           echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - if: always()
