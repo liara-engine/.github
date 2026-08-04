@@ -69,7 +69,7 @@ jobs:
       - run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ${{ inputs.clang-package }}
-          python3 -m pip install --break-system-packages "libclang==${{ inputs.libclang-version }}"
+          sudo apt-get install python3-clang-${{ inputs.libclang-version }}
 
       - if: ${{ inputs.run-configure }}
         run: cmake -S . -B build/_layout_config ${{ inputs.configure-options }}
