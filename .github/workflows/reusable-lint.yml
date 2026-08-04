@@ -59,8 +59,8 @@ jobs:
       - shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang-format-18
-          sudo ln -sf /usr/bin/clang-format-18 /usr/local/bin/clang-format
+          sudo apt-get install -y --no-install-recommends clang-format-20
+          sudo ln -sf /usr/bin/clang-format-20 /usr/local/bin/clang-format
 
       - id: format
         shell: bash
@@ -121,9 +121,9 @@ jobs:
 
       - shell: bash
         run: |
-          sudo apt-get install -y --no-install-recommends clang-tidy-18
-          sudo ln -sf /usr/bin/clang-tidy-18     /usr/local/bin/clang-tidy
-          sudo ln -sf /usr/bin/run-clang-tidy-18 /usr/local/bin/run-clang-tidy
+          sudo apt-get install -y --no-install-recommends clang-tidy-20
+          sudo ln -sf /usr/bin/clang-tidy-20     /usr/local/bin/clang-tidy
+          sudo ln -sf /usr/bin/run-clang-tidy-20 /usr/local/bin/run-clang-tidy
 
       - shell: bash
         working-directory: _root/workspace

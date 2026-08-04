@@ -14,11 +14,11 @@ on:
       clang-package:
         required: false
         type: string
-        default: 'clang-18'
+        default: 'clang-20'
       libclang-version:
         required: false
         type: string
-        default: '18.1.1'
+        default: '20'
       run-configure:
         required: false
         type: boolean

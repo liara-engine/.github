@@ -34,11 +34,11 @@ on:
       clang-package:
         required: false
         type: string
-        default: 'clang-18'
+        default: 'clang-20'
       libclang-version:
         required: false
         type: string
-        default: '18.1.1'
+        default: '20'
       run-configure:
         required: false
         type: boolean
@@ -118,7 +118,7 @@ jobs:
       matrix:
         include:
           - { name: gcc,   os: ubuntu-24.04,   cc: gcc-14,   cxx: g++-14,     packages: 'gcc-14 g++-14', is_msvc: false }
-          - { name: clang, os: ubuntu-24.04,   cc: clang-18, cxx: clang++-18, packages: 'clang-18',      is_msvc: false }
+          - { name: clang, os: ubuntu-24.04,   cc: clang-20, cxx: clang++-20, packages: 'clang-20',      is_msvc: false }
           - { name: msvc,  os: windows-latest, cc: cl,       cxx: cl,         packages: '',              is_msvc: true }
     name: layout-compile (${{ matrix.name }})
     defaults:

@@ -41,13 +41,13 @@ on:
         description: 'apt package / binary providing clang, used to resolve system headers.'
         required: false
         type: string
-        default: 'clang-18'
+        default: 'clang-20'
 
       libclang-version:
         description: 'PyPI libclang version (match the clang major for consistent parsing).'
         required: false
         type: string
-        default: '18.1.1'
+        default: '20'
 
       github-repo-version:
         description: 'Ref of the org .github repository to pull the shared script from.'
