@@ -132,7 +132,7 @@ jobs:
       - if: always()
         shell: bash
         env:
-          LEG: '${{ inputs.preset }} (standalone, interfaces @ ${{ steps.refs.outputs.interfaces-ref || "n/a" }})'
+          LEG: '${{ inputs.preset }} (standalone, interfaces @ ${{ steps.refs.outputs.interfaces-ref }})'
         run: |
           bash .github-shared-core/scripts/report_fragment.sh \
             --section 1 --section-name 'Build' \
