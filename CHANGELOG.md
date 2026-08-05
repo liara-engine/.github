@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/liara-engine/.github/compare/v0.4.1...v1.0.0) (2026-08-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ci:** add new reusable actions for CI and modernize ABI actions ([#24](https://github.com/liara-engine/.github/issues/24))
+
+### Features
+
+* **ci:** add new reusable actions for CI and modernize ABI actions ([#24](https://github.com/liara-engine/.github/issues/24)) ([40b2a0f](https://github.com/liara-engine/.github/commit/40b2a0f2dee9e6b0647bb6d16c97d43a54e65684))
+
 ## [0.4.1](https://github.com/liara-engine/.github/compare/v0.4.0...v0.4.1) (2026-07-23)
 
 
