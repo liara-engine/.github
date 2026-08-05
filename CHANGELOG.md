@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/liara-engine/.github/compare/v1.1.0...v1.1.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* **reusable-release-artifacts:** Windows configuration handling in build script ([f81a24f](https://github.com/liara-engine/.github/commit/f81a24fb15edbd411ff929f4b0d1fcbfd81c3be3))
+
 ## [1.1.0](https://github.com/liara-engine/.github/compare/v1.0.0...v1.1.0) (2026-08-05)
 
 
