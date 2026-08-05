@@ -1,0 +1,153 @@
+name: reusable-module-build
+
+on:
+  workflow_call:
+    inputs:
+      module:
+        required: true
+        type: string
+
+      preset:
+        description: 'Configure preset. Also the build and test preset on Linux.'
+        required: false
+        type: string
+        default: 'linux-debug-clang'
+
+      needs-interfaces:
+        description: 'Whether this repository consumes liara-interfaces through find_package.'
+        required: false
+        type: boolean
+        default: true
+
+      interfaces-ref:
+        description: 'Override the interfaces ref. Empty means: resolve it from this repo manifests.'
+        required: false
+        type: string
+        default: ''
+
+      ctest-exclude-labels:
+        required: false
+        type: string
+        default: 'gpu|slow'
+
+      github-repo-version:
+        required: false
+        type: string
+        default: 'main'
+
+      meta-ref:
+        required: false
+        type: string
+        default: 'main'
+
+jobs:
+  build:
+    name: build (${{ inputs.preset }})
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: module
+
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ inputs.github-repo-version }}'
+          sparse-checkout: 'scripts/'
+          path: .github-shared-core
+
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/liara'
+          ref: '${{ inputs.meta-ref }}'
+          sparse-checkout: scripts/CMakePresets.json.template
+          sparse-checkout-cone-mode: false
+          path: _presets
+
+      - shell: bash
+        run: |
+          set -euo pipefail
+          cp _presets/scripts/CMakePresets.json.template module/CMakePresets.json
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-20 clang-tools-20 ninja-build mold
+          mkdir -p "$HOME/.liara-toolchain"
+          ln -sf /usr/bin/clang-20   "$HOME/.liara-toolchain/clang"
+          ln -sf /usr/bin/clang++-20 "$HOME/.liara-toolchain/clang++"
+          echo "$HOME/.liara-toolchain" >> "$GITHUB_PATH"
+          echo "VCPKG_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "$GITHUB_ENV"
+          echo "VCPKG_DEFAULT_BINARY_CACHE=${RUNNER_TEMP}/vcpkg-cache" >> "$GITHUB_ENV"
+          mkdir -p "${RUNNER_TEMP}/vcpkg-cache"
+
+      - uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/vcpkg-cache
+          key: vcpkg-light-${{ runner.os }}-${{ hashFiles('module/vcpkg.json', 'module/vcpkg-configuration.json') }}
+          restore-keys: vcpkg-light-${{ runner.os }}-
+
+      - if: ${{ inputs.needs-interfaces }}
+        id: refs
+        shell: bash
+        run: |
+          python3 .github-shared-core/scripts/resolve_module_refs.py \
+            --repo-dir module \
+            --module '${{ inputs.module }}' \
+            --override '${{ inputs.interfaces-ref }}' \
+            --github-output "$GITHUB_OUTPUT"
+
+      - if: ${{ inputs.needs-interfaces }}
+        uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/liara-interfaces'
+          ref: '${{ steps.refs.outputs.interfaces-ref }}'
+          path: _interfaces
+
+      - if: ${{ inputs.needs-interfaces }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -S _interfaces -B _interfaces/build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DLIARA_INTERFACES_BUILD_TESTS=OFF \
+                -DLIARA_INTERFACES_INSTALL=ON \
+                -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/prefix"
+          cmake --build _interfaces/build --target install
+          echo "CMAKE_PREFIX_PATH=${RUNNER_TEMP}/prefix" >> "$GITHUB_ENV"
+
+      - id: build
+        shell: bash
+        working-directory: module
+        run: |
+          set +e
+          {
+            cmake --preset '${{ inputs.preset }}' --no-warn-unused-cli \
+              && cmake --build --preset '${{ inputs.preset }}' \
+              && ctest --preset '${{ inputs.preset }}' \
+                   --label-exclude '${{ inputs.ctest-exclude-labels }}' --output-on-failure
+          } 2>&1 | tee ../build.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - if: always()
+        shell: bash
+        env:
+          LEG: '${{ inputs.preset }} (standalone, interfaces @ ${{ steps.refs.outputs.interfaces-ref }})'
+        run: |
+          bash .github-shared-core/scripts/report_fragment.sh \
+            --section 1 --section-name 'Build' \
+            --step 1 --step-name 'Standalone build and test' \
+            --leg "$LEG" \
+            --status '${{ steps.build.outputs.status }}' \
+            --log build.log \
+            --out "ci-report-branch-build"
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-report-branch-build
+          path: ci-report-branch-build/
+          retention-days: 1
+
+      - if: steps.build.outputs.status != '0'
+        run: exit 1

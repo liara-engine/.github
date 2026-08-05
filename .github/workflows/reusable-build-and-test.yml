@@ -1,0 +1,140 @@
+name: reusable-build-and-test
+
+# Builds the workspace superbuild with the calling repository substituted for its clone, then runs
+# the test suite. The matrix is expressed as preset names rather than as (os, compiler, build type)
+# tuples, because the presets are the project's supported build interface: a leg that CI can run but
+# a developer cannot reproduce with one preset name is a leg that lies.
+
+on:
+  workflow_call:
+    inputs:
+      module:
+        description: 'Name of the calling repository.'
+        required: true
+        type: string
+
+      matrix:
+        description: >
+          JSON array of legs. Each entry: name, os, configure, build, test, toolchain.
+          Defaults to the full matrix; a repository with nothing to build narrows it.
+        required: false
+        type: string
+        default: >-
+          [
+            {"name": "linux-gcc-debug",      "os": "ubuntu-24.04",  "configure": "linux-debug-gcc",           "build": "linux-debug-gcc",           "test": "linux-debug-gcc",           "toolchain": "gcc",   "cross-language": true},
+            {"name": "linux-gcc-release",    "os": "ubuntu-24.04",  "configure": "linux-release-gcc",         "build": "linux-release-gcc",         "test": "linux-release-gcc",         "toolchain": "gcc",   "cross-language": false},
+            {"name": "linux-clang-debug",    "os": "ubuntu-24.04",  "configure": "linux-debug-clang",         "build": "linux-debug-clang",         "test": "linux-debug-clang",         "toolchain": "clang", "cross-language": true},
+            {"name": "linux-clang-release",  "os": "ubuntu-24.04",  "configure": "linux-release-clang",       "build": "linux-release-clang",       "test": "linux-release-clang",       "toolchain": "clang", "cross-language": false},
+            {"name": "linux-shared-link",    "os": "ubuntu-24.04",  "configure": "linux-debug-clang-link",    "build": "linux-debug-clang-link",    "test": "linux-debug-clang-link",    "toolchain": "clang", "cross-language": false},
+            {"name": "linux-shared-runtime", "os": "ubuntu-24.04",  "configure": "linux-debug-clang-runtime", "build": "linux-debug-clang-runtime", "test": "linux-debug-clang-runtime", "toolchain": "clang", "cross-language": false},
+            {"name": "windows-debug",        "os": "windows-2022",  "configure": "windows",                   "build": "windows-debug",             "test": "windows-debug",             "toolchain": "",      "cross-language": true},
+            {"name": "windows-release",      "os": "windows-2022",  "configure": "windows",                   "build": "windows-release",           "test": "windows-release",           "toolchain": "",      "cross-language": false},
+            {"name": "windows-runtime",      "os": "windows-2022",  "configure": "windows-runtime",           "build": "windows-debug-runtime",     "test": "windows-debug-runtime",     "toolchain": "",      "cross-language": false}
+          ]
+
+      ctest-exclude-labels:
+        description: 'CTest label regex to exclude. Selection is by exclusion; see TOOLING.md 6.2.'
+        required: false
+        type: string
+        default: 'gpu'
+
+      github-repo-version:
+        description: 'Ref of the org .github repository the composite action is taken from.'
+        required: false
+        type: string
+        default: 'main'
+
+      meta-ref:
+        description: 'Ref of the meta repository driving the workspace.'
+        required: false
+        type: string
+        default: 'main'
+
+jobs:
+  build-and-test:
+    name: build (${{ matrix.leg.name }})
+    runs-on: ${{ matrix.leg.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: ${{ fromJson(inputs.matrix) }}
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ inputs.github-repo-version }}'
+          path: .github-shared-core
+
+      - id: workspace
+        uses: ./.github-shared-core/.github/actions/setup-workspace
+        with:
+          module: ${{ inputs.module }}
+          configure-preset: ${{ matrix.leg.configure }}
+          toolchain: ${{ matrix.leg.toolchain }}
+          cross-language: ${{ matrix.leg['cross-language'] }}
+          meta-ref: ${{ inputs.meta-ref }}
+
+      - if: failure()
+        shell: bash
+        run: |
+          bash .github-shared-core/scripts/report_fragment.sh \
+            --section 1 --section-name 'Build' \
+            --step 1 --step-name 'Configure' \
+            --leg "${{ matrix.leg.name }}" \
+            --status 1 \
+            --log _root/workspace/build/*/CMakeFiles/CMakeConfigureLog.yaml \
+            --out "ci-report-build-and-test-${{ matrix.leg.name }}"
+
+      - id: build
+        shell: bash
+        working-directory: _root/workspace
+        run: |
+          set +e
+          cmake --build --preset '${{ matrix.leg.build }}' 2>&1 | tee build.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - shell: bash
+        run: |
+          bash .github-shared-core/scripts/report_fragment.sh \
+            --section 1 --section-name 'Build' \
+            --step 2 --step-name 'Build' \
+            --leg "${{ matrix.leg.name }}" \
+            --status '${{ steps.build.outputs.status }}' \
+            --log _root/workspace/build.log \
+            --out "ci-report-build-and-test-${{ matrix.leg.name }}"
+
+      - if: ${{ steps.build.outputs.status != '0' }}
+        run: exit 1
+
+      - id: test
+        shell: bash
+        working-directory: _root/workspace
+        run: |
+          set +e
+          ctest --preset '${{ matrix.leg.test }}' --label-exclude '${{ inputs.ctest-exclude-labels }}' --output-on-failure 2>&1 | tee test.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - shell: bash
+        run: |
+          bash .github-shared-core/scripts/report_fragment.sh \
+            --section 1 --section-name 'Build' \
+            --step 3 --step-name 'Test' \
+            --leg "${{ matrix.leg.name }}" \
+            --status '${{ steps.test.outputs.status }}' \
+            --log _root/workspace/test.log \
+            --out "ci-report-build-and-test-${{ matrix.leg.name }}"
+
+      - if: ${{ steps.test.outputs.status != '0' }}
+        run: exit 1
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-report-build-and-test-${{ matrix.leg.name }}
+          path: ci-report-build-and-test-${{ matrix.leg.name }}
+          retention-days: 1
