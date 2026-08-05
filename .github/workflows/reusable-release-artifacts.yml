@@ -1,0 +1,115 @@
+name: reusable-release-artifacts
+
+# Turns a tag into a set of consumable binaries. Same assembly path as the build matrix, with
+# install(1) in place of ctest(1): a release artifact that was produced by a different build than
+# the one CI validated is an artifact nobody validated.
+
+on:
+  workflow_call:
+    inputs:
+      module:
+        required: true
+        type: string
+      version:
+        description: 'Version being released, without the leading v.'
+        required: true
+        type: string
+      matrix:
+        required: false
+        type: string
+        default: >-
+          [
+            {"name": "linux-gcc-static",    "os": "ubuntu-24.04", "configure": "linux-release-gcc",        "build": "linux-release-gcc",        "toolchain": "gcc",   "platform": "linux",   "tc": "gcc",  "linkage": "static"},
+            {"name": "linux-gcc-shared",    "os": "ubuntu-24.04", "configure": "linux-release-gcc-link",   "build": "linux-release-gcc-link",   "toolchain": "gcc",   "platform": "linux",   "tc": "gcc",  "linkage": "shared"},
+            {"name": "linux-clang-static",  "os": "ubuntu-24.04", "configure": "linux-release-clang",      "build": "linux-release-clang",      "toolchain": "clang", "platform": "linux",   "tc": "clang","linkage": "static"},
+            {"name": "linux-clang-shared",  "os": "ubuntu-24.04", "configure": "linux-release-clang-link", "build": "linux-release-clang-link", "toolchain": "clang", "platform": "linux",   "tc": "clang","linkage": "shared"},
+            {"name": "windows-msvc-static", "os": "windows-2022", "configure": "windows",                  "build": "windows-release",          "toolchain": "",      "platform": "windows", "tc": "msvc", "linkage": "static"},
+            {"name": "windows-msvc-shared", "os": "windows-2022", "configure": "windows-link",             "build": "windows-release-link",     "toolchain": "",      "platform": "windows", "tc": "msvc", "linkage": "shared"}
+          ]
+      github-repo-version:
+        required: false
+        type: string
+        default: 'main'
+
+jobs:
+  package:
+    name: package (${{ matrix.leg.name }})
+    runs-on: ${{ matrix.leg.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: ${{ fromJson(inputs.matrix) }}
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          ref: '${{ inputs.github-repo-version }}'
+          path: .github-shared-core
+
+      - uses: ./.github-shared-core/.github/actions/setup-workspace
+        with:
+          module: ${{ inputs.module }}
+          configure-preset: ${{ matrix.leg.configure }}
+          toolchain: ${{ matrix.leg.toolchain }}
+
+      - shell: bash
+        working-directory: _root/workspace
+        run: cmake --build --preset '${{ matrix.leg.build }}'
+
+      - shell: bash
+        env:
+          STAGE: ${{ runner.temp }}/stage
+          BUILD: _root/workspace/build/${{ matrix.leg.configure }}
+        run: |
+          set -euo pipefail
+          CFG=${{ matrix.leg.platform == 'windows' && '--config Release' || '' }}
+          for component in runtime dev; do
+            cmake --install "$BUILD" --prefix "$STAGE" $CFG \
+                  --component "${{ inputs.module }}-$component"
+          done
+          cp "_root/workspace/${{ inputs.module }}/manifest.json" "$STAGE/manifest.json"
+
+      - id: pack
+        shell: bash
+        env:
+          STAGE: ${{ runner.temp }}/stage
+        run: |
+          set -euo pipefail
+          BASE="liara-${{ inputs.module }}-${{ inputs.version }}-${{ matrix.leg.platform }}-${{ matrix.leg.tc }}-${{ matrix.leg.linkage }}"
+          if [ "${{ matrix.leg.platform }}" = "windows" ]; then
+            NAME="$BASE.zip"; (cd "$STAGE" && 7z a -tzip "$RUNNER_TEMP/$NAME" .)
+          else
+            NAME="$BASE.tar.zst"; tar --zstd -cf "$RUNNER_TEMP/$NAME" -C "$STAGE" .
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.leg.name }}
+          path: ${{ runner.temp }}/${{ steps.pack.outputs.name }}
+          retention-days: 1
+
+  publish:
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: 'release-*'
+          path: dist
+          merge-multiple: true
+
+      - shell: bash
+        working-directory: dist
+        run: sha256sum * > "liara-${{ inputs.module }}-${{ inputs.version }}-SHA256SUMS.txt"
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: dist/*
