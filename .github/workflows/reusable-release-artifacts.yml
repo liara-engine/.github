@@ -64,11 +64,13 @@ jobs:
           STAGE: ${{ runner.temp }}/stage
           BUILD: _root/workspace/build/${{ matrix.leg.configure }}
         run: |
-          set -euo pipefail
-          CFG=${{ matrix.leg.platform == 'windows' && '--config Release' || '' }}
+          set -euo pipefail  
+          cfg=()
+          if [ "${{ matrix.leg.platform }}" = "windows" ]; then
+            cfg+=(--config Release)
+          fi
           for component in runtime dev; do
-            cmake --install "$BUILD" --prefix "$STAGE" $CFG \
-                  --component "${{ inputs.module }}-$component"
+            cmake --install "$BUILD" --prefix "$STAGE" "${cfg[@]}" --component "${{ inputs.module }}-$component"
           done
           cp "_root/workspace/${{ inputs.module }}/manifest.json" "$STAGE/manifest.json"
 
