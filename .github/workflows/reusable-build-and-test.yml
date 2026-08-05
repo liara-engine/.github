@@ -44,6 +44,12 @@ on:
         type: string
         default: 'main'
 
+      meta-ref:
+        description: 'Ref of the meta repository driving the workspace.'
+        required: false
+        type: string
+        default: 'main'
+
 jobs:
   build-and-test:
     name: build (${{ matrix.leg.name }})
@@ -71,7 +77,7 @@ jobs:
           configure-preset: ${{ matrix.leg.configure }}
           toolchain: ${{ matrix.leg.toolchain }}
           cross-language: ${{ matrix.leg['cross-language'] }}
-          meta-ref: ${{ inputs.github-repo-version == 'main' && 'main' || inputs.github-repo-version }}
+          meta-ref: ${{ inputs.meta-ref }}
 
       - if: failure()
         shell: bash
