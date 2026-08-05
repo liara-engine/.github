@@ -17,6 +17,10 @@ inputs:
     description: 'Linux toolchain to expose as plain `gcc`/`clang` on PATH: gcc, clang, or empty.'
     required: false
     default: ''
+  cross-language:
+    description: 'Whether to install Zig and Rust for cross-language tests. Linux only.'
+    required: false
+    default: 'false'
   meta-ref:
     description: 'Ref of the meta repository driving the workspace.'
     required: false
@@ -84,12 +88,12 @@ runs:
     # Optional in the toolchain, not optional in CI: without them the cross-language tests are
     # silently not registered and ctest reports success without having checked C callability
     # from anything but C and C++.
-    - if: runner.os == 'Linux'
+    - if: runner.os == 'Linux' && inputs.cross-language == 'true'
       uses: mlugg/setup-zig@v2
       with:
         version: 0.14.0
 
-    - if: runner.os == 'Linux'
+    - if: runner.os == 'Linux' && inputs.cross-language == 'true'
       uses: dtolnay/rust-toolchain@stable
 
     - shell: bash
@@ -114,10 +118,15 @@ runs:
           vcpkg-${{ runner.os }}-${{ inputs.configure-preset }}-
           vcpkg-${{ runner.os }}-
 
-    - if: inputs.configure-preset != ''
+    - if: inputs.configure-preset != '' && inputs.cross-language == false
       shell: bash
       working-directory: _root/workspace
-      run: cmake --preset '${{ inputs.configure-preset }}'
+      run: cmake --preset '${{ inputs.configure-preset }}' -DLIARA_INTERFACES_REQUIRE_CROSS_LANGUAGE_TESTS=OFF
+
+    - if: inputs.configure-preset != '' && inputs.cross-language == true
+      shell: bash
+      working-directory: _root/workspace
+      run: cmake --preset '${{ inputs.configure-preset }}' -DLIARA_INTERFACES_REQUIRE_CROSS_LANGUAGE_TESTS=ON
 
     - if: inputs.configure-preset != ''
       id: build-dir
