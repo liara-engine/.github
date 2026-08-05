@@ -118,12 +118,12 @@ runs:
           vcpkg-${{ runner.os }}-${{ inputs.configure-preset }}-
           vcpkg-${{ runner.os }}-
 
-    - if: inputs.configure-preset != '' && inputs.cross-language == false
+    - if: inputs.configure-preset != '' && inputs.cross-language != 'true'
       shell: bash
       working-directory: _root/workspace
       run: cmake --preset '${{ inputs.configure-preset }}' -DLIARA_INTERFACES_REQUIRE_CROSS_LANGUAGE_TESTS=OFF
 
-    - if: inputs.configure-preset != '' && inputs.cross-language == true
+    - if: inputs.configure-preset != '' && inputs.cross-language == 'true'
       shell: bash
       working-directory: _root/workspace
       run: cmake --preset '${{ inputs.configure-preset }}' -DLIARA_INTERFACES_REQUIRE_CROSS_LANGUAGE_TESTS=ON
