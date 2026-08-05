@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/liara-engine/.github/compare/v1.0.0...v1.1.0) (2026-08-05)
+
+
+### Features
+
+* **artefacts:** add reusable release artifacts workflow for packaging and publishing binaries ([f82fd8c](https://github.com/liara-engine/.github/commit/f82fd8c03bfe8399ab3fd43b08aab65e145be580))
+
 ## [1.0.0](https://github.com/liara-engine/.github/compare/v0.4.1...v1.0.0) (2026-08-05)
 
 
