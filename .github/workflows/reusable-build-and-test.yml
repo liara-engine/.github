@@ -73,23 +73,62 @@ jobs:
           cross-language: ${{ matrix.leg['cross-language'] }}
           meta-ref: ${{ inputs.github-repo-version == 'main' && 'main' || inputs.github-repo-version }}
 
-      - name: Build
-        shell: bash
-        working-directory: _root/workspace
-        run: cmake --build --preset '${{ matrix.leg.build }}' 
-
-      - name: Test
-        shell: bash
-        working-directory: _root/workspace
-        run: ctest --preset '${{ matrix.leg.test }}' --label-exclude '${{ inputs.ctest-exclude-labels }}' --output-on-failure
-
-      # The launcher is the only artifact that exercises composition end to end, so it is the one
-      # worth keeping when a leg fails and the failure has to be reproduced.
       - if: failure()
+        shell: bash
+        run: |
+          bash .github-shared-core/scripts/report_fragment.sh \
+            --section 1 --section-name 'Build' \
+            --step 1 --step-name 'Configure' \
+            --leg "${{ matrix.leg.name }}" \
+            --status 1 \
+            --log _root/workspace/build/*/CMakeFiles/CMakeConfigureLog.yaml \
+            --out "ci-report-build-and-test-${{ matrix.leg.name }}"
+
+      - id: build
+        shell: bash
+        working-directory: _root/workspace
+        run: |
+          set +e
+          cmake --build --preset '${{ matrix.leg.build }}' 2>&1 | tee build.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - shell: bash
+        run: |
+          bash .github-shared-core/scripts/report_fragment.sh \
+            --section 1 --section-name 'Build' \
+            --step 2 --step-name 'Build' \
+            --leg "${{ matrix.leg.name }}" \
+            --status '${{ steps.build.outputs.status }}' \
+            --log _root/workspace/build.log \
+            --out "ci-report-build-and-test-${{ matrix.leg.name }}"
+
+      - if: ${{ steps.build.outputs.status != '0' }}
+        run: exit 1
+
+      - id: test
+        shell: bash
+        working-directory: _root/workspace
+        run: |
+          set +e
+          ctest --preset '${{ matrix.leg.test }}' --label-exclude '${{ inputs.ctest-exclude-labels }}' --output-on-failure 2>&1 | tee test.log
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - shell: bash
+        run: |
+          bash .github-shared-core/scripts/report_fragment.sh \
+            --section 1 --section-name 'Build' \
+            --step 3 --step-name 'Test' \
+            --leg "${{ matrix.leg.name }}" \
+            --status '${{ steps.test.outputs.status }}' \
+            --log _root/workspace/test.log \
+            --out "ci-report-build-and-test-${{ matrix.leg.name }}"
+
+      - if: ${{ steps.test.outputs.status != '0' }}
+        run: exit 1
+
+      - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: build-logs-${{ matrix.leg.name }}
-          path: |
-            _root/workspace/build/*/CMakeFiles/CMakeConfigureLog.yaml
-            _root/workspace/build/*/Testing/Temporary/LastTest.log
-          if-no-files-found: ignore
+          name: ci-report-build-and-test-${{ matrix.leg.name }}
+          path: ci-report-build-and-test-${{ matrix.leg.name }}
+          retention-days: 1
