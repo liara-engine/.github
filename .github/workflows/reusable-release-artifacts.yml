@@ -84,7 +84,11 @@ jobs:
           STAGE: ${{ runner.temp }}/stage
         run: |
           set -euo pipefail
-          BASE="liara-${{ inputs.module }}-${{ inputs.version }}-${{ matrix.leg.platform }}-${{ matrix.leg.tc }}-${{ matrix.leg.linkage }}"
+          if [[ "${{ inputs.module }}" == liara-* ]]; then
+              BASE="${{ inputs.module }}-${{ inputs.version }}-${{ matrix.leg.platform }}-${{ matrix.leg.tc }}-${{ matrix.leg.linkage }}"
+          else
+              BASE="liara-${{ inputs.module }}-${{ inputs.version }}-${{ matrix.leg.platform }}-${{ matrix.leg.tc }}-${{ matrix.leg.linkage }}"
+          fi
           if [ "${{ matrix.leg.platform }}" = "windows" ]; then
             NAME="$BASE.zip"; (cd "$STAGE" && 7z a -tzip "$RUNNER_TEMP/$NAME" .)
           else
