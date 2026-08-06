@@ -26,19 +26,18 @@ focused responsibility.
 
 ### Engine modules
 
-- **[liara](https://github.com/liara-engine/liara)** — the meta
-  repository: launcher, packaging, documentation hub, and the
-  compatibility matrix that ties everything together. **Start here.**
-- **[liara-interfaces](https://github.com/liara-engine/liara-interfaces)**
-  — header-only repository defining the C ABI contracts between
-  modules. The most version-sensitive part of the project.
-- **[liara-core](https://github.com/liara-engine/liara-core)** —
-  engine foundation: ECS, math, asset management, logger, settings,
-  application loop.
-- **[liara-renderer](https://github.com/liara-engine/liara-renderer)**
-  — Vulkan reference renderer. The graphics backend.
-- **liara-editor** *(post-v1.0)* — visual scene editor.
-- **liara-physics** *(post-v1.0)* — physics module.
+### Repositories
+
+| Repository                                                             | What it owns                                                                   |
+|------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| [`liara`](https://github.com/liara-engine/liara)                       | The launcher, the workspace tooling, and the shared documentation. Start here. |
+| [`liara-interfaces`](https://github.com/liara-engine/liara-interfaces) | The C ABI contract shared by every module. Header-only.                        |
+| [`liara-core`](https://github.com/liara-engine/liara-core)             | ECS, math, logger, settings, event bus, loop primitives.                       |
+| [`liara-platform`](https://github.com/liara-engine/liara-platform)     | Window, input, OS signals, timing.                                             |
+| [`liara-renderer`](https://github.com/liara-engine/liara-renderer)     | Vulkan rendering.                                                              |
+| [`liara-assets`](https://github.com/liara-engine/liara-assets)         | Asset loading, decoding, lifetime.                                             |
+| [`liara-audio`](https://github.com/liara-engine/liara-audio)           | Playback and mixing.                                                           |
+| [`docs-shared`](https://github.com/liara-engine/docs-shared)           | Templates and assets shared by every module's documentation.                   |
 
 ### Infrastructure
 
