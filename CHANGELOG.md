@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/liara-engine/.github/compare/v1.1.1...v1.1.2) (2026-08-06)
+
+
+### Bug Fixes
+
+* **reusable-release-artifacts:** add optional tag_name input for release artifacts ([7e39791](https://github.com/liara-engine/.github/commit/7e39791ca38403401bf05b8300d314f1c5200a44))
+
 ## [1.1.1](https://github.com/liara-engine/.github/compare/v1.1.0...v1.1.1) (2026-08-05)
 
 
