@@ -8,4 +8,4 @@ jobs:
   lint-commits:
     permissions:
       pull-requests: write
-    uses: liara-engine/.github/.github/workflows/reusable-commitlint.yml@v0
+    uses: liara-engine/.github/.github/workflows/reusable-commitlint.yml@v1

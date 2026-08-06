@@ -46,7 +46,7 @@ on:
 
 jobs:
   use-build:
-    uses: liara-engine/.github/.github/workflows/reusable-build-docs.yml@v0
+    uses: liara-engine/.github/.github/workflows/reusable-build-docs.yml@v1
     with:
       image: ${{ inputs.image }}
       additional-dir-to-deploy: ${{ inputs.additional-dir-to-deploy }}
@@ -57,7 +57,7 @@ jobs:
 
   use-publish:
     needs: use-build
-    uses: liara-engine/.github/.github/workflows/reusable-deploy-docs.yml@v0
+    uses: liara-engine/.github/.github/workflows/reusable-deploy-docs.yml@v1
     with:
       output-repository: ${{ inputs.output-repository }}
       output-branch: ${{ inputs.output-branch }}
