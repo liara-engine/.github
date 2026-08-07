@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4](https://github.com/liara-engine/.github/compare/v1.1.3...v1.1.4) (2026-08-07)
+
+
+### Bug Fixes
+
+* **build:** add static flags for Liara renderer and core in ABI files ([a6f4bfd](https://github.com/liara-engine/.github/commit/a6f4bfd65a48306013ce0430cd1efc636317e3c2))
+
 ## [1.1.3](https://github.com/liara-engine/.github/compare/v1.1.2...v1.1.3) (2026-08-06)
 
 
