@@ -288,6 +288,7 @@ def main() -> int:
         return 2
 
     parse_args = (["-x", "c++", f"-std={args.std}", "-I", str(include_dir)]
+                  + ["-DLIARA_CORE_STATIC=1", "-DLIARA_RENDERER_STATIC=1"]
                   + [f"-I{extra}" for extra in args.include_extra]
                   + builtin_include_args(args.clang, args.isystem))
     index = cindex.Index.create()
