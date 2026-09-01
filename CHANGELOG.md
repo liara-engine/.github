@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.5](https://github.com/liara-engine/.github/compare/v1.1.4...v1.1.5) (2026-09-01)
+
+
+### Bug Fixes
+
+* **build:** update cross-language flag for Windows debug configuration ([fad35f0](https://github.com/liara-engine/.github/commit/fad35f0867808d3bf23e7b42f311449cb75f29ed))
+
 ## [1.1.4](https://github.com/liara-engine/.github/compare/v1.1.3...v1.1.4) (2026-08-07)
 
 
