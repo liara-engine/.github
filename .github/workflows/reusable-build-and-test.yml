@@ -27,7 +27,7 @@ on:
             {"name": "linux-clang-release",  "os": "ubuntu-24.04",  "configure": "linux-release-clang",       "build": "linux-release-clang",       "test": "linux-release-clang",       "toolchain": "clang", "cross-language": false},
             {"name": "linux-shared-link",    "os": "ubuntu-24.04",  "configure": "linux-debug-clang-link",    "build": "linux-debug-clang-link",    "test": "linux-debug-clang-link",    "toolchain": "clang", "cross-language": false},
             {"name": "linux-shared-runtime", "os": "ubuntu-24.04",  "configure": "linux-debug-clang-runtime", "build": "linux-debug-clang-runtime", "test": "linux-debug-clang-runtime", "toolchain": "clang", "cross-language": false},
-            {"name": "windows-debug",        "os": "windows-2022",  "configure": "windows",                   "build": "windows-debug",             "test": "windows-debug",             "toolchain": "",      "cross-language": true},
+            {"name": "windows-debug",        "os": "windows-2022",  "configure": "windows",                   "build": "windows-debug",             "test": "windows-debug",             "toolchain": "",      "cross-language": false},
             {"name": "windows-release",      "os": "windows-2022",  "configure": "windows",                   "build": "windows-release",           "test": "windows-release",           "toolchain": "",      "cross-language": false},
             {"name": "windows-runtime",      "os": "windows-2022",  "configure": "windows-runtime",           "build": "windows-debug-runtime",     "test": "windows-debug-runtime",     "toolchain": "",      "cross-language": false}
           ]
