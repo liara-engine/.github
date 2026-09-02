@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.3](https://github.com/liara-engine/.github/compare/v2.0.2...v2.0.3) (2026-09-02)
+
+
+### Bug Fixes
+
+* **action:** merge content-addressed store into site root during deployment ([cc085d9](https://github.com/liara-engine/.github/commit/cc085d960e6027f96d3d380719a26174b2303b71))
+
 ## [2.0.2](https://github.com/liara-engine/.github/compare/v2.0.1...v2.0.2) (2026-09-02)
 
 
