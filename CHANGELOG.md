@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.3](https://github.com/liara-engine/.github/compare/v2.1.2...v2.1.3) (2026-09-02)
+
+
+### Bug Fixes
+
+* **action:** update search index script to handle site paths dynamically ([5878674](https://github.com/liara-engine/.github/commit/5878674bb8ca2f862be62b4e42468aa031db9fa9))
+
 ## [2.1.2](https://github.com/liara-engine/.github/compare/v2.1.1...v2.1.2) (2026-09-02)
 
 
