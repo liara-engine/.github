@@ -129,5 +129,4 @@ runs:
       shell: bash
       env:
         SITE: ${{ inputs.site }}
-        tools: ${{ github.workspace }}/.liara-site-tools
       run: python3 "${tools}/search-index.py" "${SITE}"
