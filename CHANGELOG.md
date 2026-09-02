@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/liara-engine/.github/compare/v2.0.0...v2.0.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **action:** update sparse-checkout to include modules-registry.json ([df0e569](https://github.com/liara-engine/.github/commit/df0e569023c7f6e3e0ec8dc539d01edb2cfcf7d7))
+
 ## [2.0.0](https://github.com/liara-engine/.github/compare/v1.2.0...v2.0.0) (2026-09-02)
 
 
