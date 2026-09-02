@@ -10,10 +10,16 @@ on:
         required: false
         type: string
         default: cloudflare-pages
+      docs-shared-ref:
+        required: false
+        type: string
+        default: main
 
     secrets:
       push-token:
         required: true
+      read-token:
+        required: false
 
 jobs:
   cleanup:
@@ -33,23 +39,46 @@ jobs:
           ref: ${{ inputs.output-branch }}
           token: ${{ secrets.push-token }}
           path: output-repository
-          fetch-depth: '0'
+          fetch-depth: 0
 
-      - name: Remove preview directory
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          sparse-checkout: |
+            scripts
+            .github/actions
+          path: '.github-shared-core'
+
+      - name: Remove the preview
+        id: remove
         run: |
           set -euo pipefail
-          cd output-repository
-          repo_name="${GITHUB_REPOSITORY##*/}"
-          target="site/${repo_name}/pr-${{ github.event.number }}"
+          repo="${GITHUB_REPOSITORY##*/}"
+          target="output-repository/site/${repo}/pr-${{ github.event.number }}"
 
           if [ ! -d "$target" ]; then
-            echo "No preview at $target, nothing to clean."
+            echo "No preview at $target."
+            echo "removed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git rm -r --quiet "$target"
-          git commit -m "Remove docs preview pr-${{ github.event.number }} for ${GITHUB_REPOSITORY}"
-          git pull --rebase origin "${{ inputs.output-branch }}" || echo "Nothing to rebase"
-          git push origin HEAD:"${{ inputs.output-branch }}"
+          rm -rf "$target"
+          echo "removed=true" >> "$GITHUB_OUTPUT"
+          echo "Removed $target."
+
+      - if: steps.remove.outputs.removed == 'true'
+        uses: ./.github-shared-core/.github/actions/site-refresh
+        with:
+          site: output-repository/site
+          docs-shared-ref: ${{ inputs.docs-shared-ref }}
+          collect-garbage: 'true'
+          token: ${{ secrets.read-token }}
+
+      - if: steps.remove.outputs.removed == 'true'
+        run: |
+          bash .github-shared-core/scripts/git-publish.sh \
+            --repo-dir output-repository \
+            --branch "${{ inputs.output-branch }}" \
+            --message "docs: remove preview pr-${{ github.event.number }} for $GITHUB_REPOSITORY" \
+            --generated site/registry-index.json \
+            --regenerate "$LIARA_INDEX_COMMAND"

@@ -16,55 +16,86 @@ on:
         type: string
         default: cloudflare-pages
 
-      # Generally `dev` or `X.Y.Z`
-      deployment-version:
+      version:
+        required: true
+        type: string
+        default: ''
+
+      source-repository:
         required: false
         type: string
-        default: generated-docs
+        default: ''
+      source-ref:
+        required: false
+        type: string
+        default: ''
+      source-path:
+        required: false
+        type: string
+        default: '.'
+      repo:
+        required: false
+        type: string
+        default: ''
 
-      erase-existing-output:
+      site:
+        required: false
+        type: string
+        default: https://liara-engine.liara-engine-documentation.workers.dev
+
+      skip-api:
         required: false
         type: boolean
         default: false
 
-      additional-dir-to-deploy:
+      update-manifest:
         required: false
         type: string
-        default: ""
+        default: auto
 
-      deploy-as-hub:
+      docs-shared-ref:
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: main
 
     secrets:
       ghcr-token:
-        required: true
-
+        required: false
       push-token:
         required: true
+      read-token:
+        required: false
 
 jobs:
-  use-build:
+  build:
+    permissions:
+      contents: read
+      packages: read
     uses: liara-engine/.github/.github/workflows/reusable-build-docs.yml@v1
     with:
       image: ${{ inputs.image }}
-      additional-dir-to-deploy: ${{ inputs.additional-dir-to-deploy }}
-
+      source-repository: ${{ inputs.source-repository }}
+      source-ref: ${{ inputs.source-ref }}
+      source-path: ${{ inputs.source-path }}
+      repo: ${{ inputs.repo }}
+      version: ${{ inputs.version }}
+      site: ${{ inputs.site }}
+      skip-api: ${{ inputs.skip-api }}
     secrets:
       ghcr-token: ${{ secrets.ghcr-token }}
-      push-token: ${{ secrets.push-token }}
+      read-token: ${{ secrets.read-token }}
 
-  use-publish:
-    needs: use-build
+  publish:
+    needs: build
+    permissions:
+      contents: read
     uses: liara-engine/.github/.github/workflows/reusable-deploy-docs.yml@v1
     with:
       output-repository: ${{ inputs.output-repository }}
       output-branch: ${{ inputs.output-branch }}
-      deployment-version: ${{ inputs.deployment-version }}
-      erase-existing-output: ${{ inputs.erase-existing-output }}
-      deploy-as-hub: ${{ inputs.deploy-as-hub }}
-
+      update-manifest: ${{ inputs.update-manifest }}
+      docs-shared-ref: ${{ inputs.docs-shared-ref }}
     secrets:
       ghcr-token: ${{ secrets.ghcr-token }}
       push-token: ${{ secrets.push-token }}
+      read-token: ${{ secrets.read-token }}

@@ -3,9 +3,6 @@ name: reusable-generate-docker
 on:
   workflow_call:
     inputs:
-      target:
-        required: true
-        type: string
       image-name:
         required: true
         type: string

@@ -1,4 +1,12 @@
-name: reusable-docs
+name: reusable-deploy-docs
+
+# Places one artifact produced by `reusable-build-docs.yml` (or by the hub
+# build, which follows the same shape) onto the hosting repository, then leaves
+# the site describing itself correctly again.
+#
+# Everything specific to *what* is being deployed comes from the artifact's own
+# `deploy.json`, so this workflow has no per-module knowledge and no mode
+# switch beyond "is this the hub".
 
 on:
   workflow_call:
@@ -12,39 +20,48 @@ on:
         type: string
         default: cloudflare-pages
 
-      # Generally `dev` or `X.Y.Z`
-      deployment-version:
+      artifact-name:
         required: false
         type: string
-        default: generated-docs
+        default: docs
 
-      erase-existing-output:
+      update-manifest:
+        description: >
+          Whether this build's manifest.json becomes the module's canonical one
+          at `site/<repo>/manifest.json`, which is what `latest` resolves
+          through. `auto` updates it for `dev` and for the version the manifest
+          itself calls latest, and leaves it alone otherwise — so rebuilding an
+          old release cannot roll the site's idea of `latest` backwards.
+        required: false
+        type: string
+        default: auto # auto | always | never
+
+      collect-garbage:
+        description: Collect the content-addressed store after publishing.
         required: false
         type: boolean
         default: false
 
-      deploy-as-hub:
+      docs-shared-ref:
+        description: Ref of docs-shared providing the site tools.
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: main
 
     secrets:
       ghcr-token:
-        required: true
-
+        required: false
       push-token:
         required: true
+      read-token:
+        required: false
 
 jobs:
   publish:
     runs-on: ubuntu-24.04
 
     permissions:
-      contents: write
-
-    concurrency:
-      group: docs-publish-${{ inputs.output-repository }}-${{ inputs.output-branch }}
-      cancel-in-progress: false
+      contents: read
 
     steps:
       - uses: actions/checkout@v7
@@ -53,67 +70,99 @@ jobs:
           ref: ${{ inputs.output-branch }}
           token: ${{ secrets.push-token }}
           path: output-repository
+          fetch-depth: 0
 
       - uses: actions/checkout@v7
         with:
           repository: '${{ github.repository_owner }}/.github'
-          sparse-checkout: 'scripts/'
+          sparse-checkout: |
+            scripts
+            .github/actions
           path: '.github-shared-core'
 
       - uses: actions/download-artifact@v8
         with:
-          name: docs
-          path: generated-docs
+          name: ${{ inputs.artifact-name }}
+          path: artifact
 
-      - uses: actions/download-artifact@v8
-        with:
-          name: manifest
-          path: manifest
+      - name: Place the build
+        id: place
+        env:
+          UPDATE_MANIFEST: ${{ inputs.update-manifest }}
+        run: |
+          set -euo pipefail
 
-      - run: |
-          repo_name=$(basename $GITHUB_REPOSITORY)
-          
-          if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
-            version=${{ inputs.deployment-version }}
-            version=${version#v}
-            output_path=output-repository/site/$repo_name/$version
+          [ -f artifact/deploy.json ] || {
+            echo "::error::artifact ${{ inputs.artifact-name }} has no deploy.json"; exit 1; }
+
+          repo=$(jq -r '.repo // ""'      artifact/deploy.json)
+          version=$(jq -r '.version // ""' artifact/deploy.json)
+          root=$(jq -r '.root // false'    artifact/deploy.json)
+          site=output-repository/site
+          mkdir -p "$site"
+
+          if [ "$root" = "true" ]; then
+            # The hub owns exactly the top-level entries it produces, and
+            # nothing else at the site root: the modules, the store, the
+            # registry and the index all live beside it and must survive.
+            while IFS= read -r entry; do
+              rm -rf "${site:?}/$(basename "$entry")"
+            done < <(find artifact/site -mindepth 1 -maxdepth 1)
+            cp -a artifact/site/. "$site/"
+            echo "Deployed the hub to the site root."
+
           else
-            output_path=output-repository/site
-          fi
-          
-          echo "Publishing docs to: $output_path"
-          
-          if [ -d "$output_path" ] && [ "${{ inputs.erase-existing-output }}" = "true" ]; then
-            if [[ "$output_path" == output-repository/* ]]; then
-              if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
-                rm -rf "$output_path"
-                echo "Existing output erased"
-              else
-                # Hub is deployed to site root, so we need to be careful not to delete non-hub files
-                # The only files we wante to delete are the ones in /css, /js, and the ones directly in the root of site
-                find "$output_path" -maxdepth 1 -type f -delete
-                find "$output_path/css" -type f -delete
-                find "$output_path/js" -type f -delete
-                echo "Existing hub output erased"
-              fi
+            [ -n "$repo" ] && [ -n "$version" ] || {
+              echo "::error::deploy.json names no repo/version"; exit 1; }
+
+            # Root-absolute URLs point into the store at the site root, so the
+            # store cannot travel inside the version directory.
+            if [ -d artifact/site/_cas ]; then
+              mkdir -p "$site/_cas"
+              cp -a artifact/site/_cas/. "$site/_cas/"
+              rm -rf artifact/site/_cas
+            fi
+
+            target="$site/$repo/$version"
+            rm -rf "$target"
+            mkdir -p "$target"
+            cp -a artifact/site/. "$target/"
+            echo "Deployed $repo $version to $target."
+
+            latest=$(jq -r '.metadata.latest // ""' artifact/manifest.json)
+            case "$UPDATE_MANIFEST" in
+              never)  update=false ;;
+              always) update=true ;;
+              *)      if [ "$version" = "dev" ] || [ "$version" = "$latest" ];
+                      then update=true; else update=false; fi ;;
+            esac
+
+            if [ "$update" = true ]; then
+              cp artifact/manifest.json "$site/$repo/manifest.json"
+              echo "Canonical manifest updated (latest: ${latest:-unset})."
             else
-              echo "Invalid output path"
-              exit 1
+              echo "Canonical manifest left alone (this build is not $repo's latest)."
             fi
           fi
 
-          mkdir -p "$output_path"
-          
-          if [ "${{ inputs.deploy-as-hub }}" = "false" ]; then
-            cp manifest/manifest.json output-repository/site/$repo_name/manifest.json
-            cp -a generated-docs/* "$output_path/"
-          else
-            cp manifest/manifest.json output-repository/site/manifest.json
-            cp -a generated-docs/hub/* "$output_path/"
-          fi
+          if [ "$root" = "true" ]; then label="hub"; else label="$repo $version"; fi
+          {
+            echo "repo=$repo"
+            echo "version=$version"
+            echo "label=$label"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github-shared-core/.github/actions/site-refresh
+        with:
+          site: output-repository/site
+          docs-shared-ref: ${{ inputs.docs-shared-ref }}
+          collect-garbage: ${{ inputs.collect-garbage }}
+          token: ${{ secrets.read-token }}
 
       - run: |
           bash .github-shared-core/scripts/git-publish.sh \
             --repo-dir output-repository \
             --branch "${{ inputs.output-branch }}" \
-            --message "Update generated docs for $GITHUB_REPOSITORY"
+            --message "docs: ${{ steps.place.outputs.label }} from $GITHUB_REPOSITORY" \
+            --generated site/registry-index.json \
+            --regenerate "$LIARA_INDEX_COMMAND"

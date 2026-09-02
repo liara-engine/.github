@@ -1,23 +1,103 @@
 name: reusable-build-docs
 
+# Builds one (module, version) pair with the documentation builder image and
+# uploads it as a single artifact that the deploy half can place without
+# knowing anything about how it was produced.
+#
+# The artifact is self-describing:
+#
+#     <artifact>/deploy.json    where this build belongs on the site
+#     <artifact>/manifest.json  the module manifest this build was made from
+#     <artifact>/site/          the built output, `_cas/` included
+#
+# so `reusable-deploy-docs.yml` needs no inputs beyond the artifact name, and
+# the same deploy serves a release, a `dev` snapshot, a pull request preview,
+# a rebuild of an old version and the hub alike.
+
 on:
   workflow_call:
     inputs:
       image:
+        description: Builder image to run, e.g. ghcr.io/liara-engine/liara-documentation-builder:latest
         required: true
         type: string
 
-      additional-dir-to-deploy:
+      source-repository:
+        description: >
+          Repository holding the module's sources. Empty means the calling
+          repository at the ref that triggered the run — which is what ordinary
+          CI wants. Naming a repository explicitly switches on ref resolution
+          (see `source-ref`), which is what a rebuild wants.
         required: false
         type: string
-        default: ""
+        default: ''
+
+      source-ref:
+        description: >
+          Ref to build. When empty and `source-repository` is set, it is derived
+          from `version`: `dev` builds the default branch, `X.Y.Z` builds the
+          tag `vX.Y.Z`.
+        required: false
+        type: string
+        default: ''
+
+      source-path:
+        description: Directory inside the checkout to build (the module root).
+        required: false
+        type: string
+        default: '.'
+
+      repo:
+        description: >
+          First URL segment of the deployed site. Defaults to the name of the
+          source repository, which is what every real module wants.
+        required: false
+        type: string
+        default: ''
+
+      version:
+        description: 'Version segment: `dev`, `X.Y.Z` or `pr-<n>`. A leading `v` is stripped.'
+        required: false
+        type: string
+        default: dev
+
+      site:
+        description: Origin the site is served from. Baked into absolute URLs.
+        required: false
+        type: string
+        default: https://liara-engine.liara-engine-documentation.workers.dev
+
+      assets-prefix:
+        description: Root path of the content-addressed asset store.
+        required: false
+        type: string
+        default: /_cas/
+
+      skip-api:
+        description: Build the prose only, even if the module ships a Doxyfile.
+        required: false
+        type: boolean
+        default: false
+
+      artifact-name:
+        required: false
+        type: string
+        default: docs
 
     secrets:
       ghcr-token:
-        required: true
+        required: false
+      read-token:
+        description: Token able to read the source repository, when it is not this one.
+        required: false
 
-      push-token:
-        required: true
+    outputs:
+      repo:
+        value: ${{ jobs.build.outputs.repo }}
+      version:
+        value: ${{ jobs.build.outputs.version }}
+      ref:
+        value: ${{ jobs.build.outputs.ref }}
 
 jobs:
   build:
@@ -27,37 +107,118 @@ jobs:
       contents: read
       packages: read
 
+    outputs:
+      repo: ${{ steps.plan.outputs.repo }}
+      version: ${{ steps.plan.outputs.version }}
+      ref: ${{ steps.plan.outputs.ref }}
+
     steps:
+      - id: plan
+        env:
+          IN_SOURCE_REPOSITORY: ${{ inputs.source-repository }}
+          IN_SOURCE_REF: ${{ inputs.source-ref }}
+          IN_REPO: ${{ inputs.repo }}
+          IN_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          version="${IN_VERSION#v}"
+          source_repository="${IN_SOURCE_REPOSITORY}"
+          repo="${IN_REPO:-${source_repository:-$GITHUB_REPOSITORY}}"
+          repo="${repo##*/}"
+          ref="${IN_SOURCE_REF}"
+
+          # An explicitly named repository is a build of something other than
+          # "what just changed", so the ref has to be derived from the version
+          # rather than inherited from the event.
+          if [ -z "$ref" ] && [ -n "$source_repository" ]; then
+            case "$version" in
+              dev)   ref='' ;;                     # the default branch
+              pr-*)  echo "::error::a preview build needs an explicit source-ref"; exit 1 ;;
+              *)     ref="v${version}" ;;
+            esac
+          fi
+
+          # actions/checkout has no notion of an empty repository — it would
+          # try to clone one — so the resolved name goes out, while the raw
+          # input above is what decided whether to derive the ref.
+          {
+            echo "repo=${repo}"
+            echo "version=${version}"
+            echo "ref=${ref}"
+            echo "source-repository=${source_repository:-$GITHUB_REPOSITORY}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Building ${repo} ${version} from ${source_repository:-$GITHUB_REPOSITORY} ${ref:-(the ref that triggered this run)}"
+
       - uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.plan.outputs.source-repository }}
+          ref: ${{ steps.plan.outputs.ref }}
+          token: ${{ secrets.read-token || github.token }}
+          path: source
 
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.ghcr-token || github.token }}
 
-      - run: docker pull ${{ inputs.image }}
+      - env:
+          IMAGE: ${{ inputs.image }}
+        run: docker pull "$IMAGE"
 
-      - run: mkdir -p generated-docs
+      - name: Build
+        env:
+          IMAGE: ${{ inputs.image }}
+          SOURCE_PATH: ${{ inputs.source-path }}
+          LIARA_DOCS_REPO: ${{ steps.plan.outputs.repo }}
+          LIARA_DOCS_VERSION: ${{ steps.plan.outputs.version }}
+          LIARA_DOCS_SITE: ${{ inputs.site }}
+          LIARA_ASSETS_PREFIX: ${{ inputs.assets-prefix }}
+          SKIP_API: ${{ inputs.skip-api }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
 
-      - run: |
+          args=(--output /out/site)
+          if [ "$SKIP_API" = "true" ]; then args+=(--skip-api); fi
+
           docker run --rm \
-            -v ${{ github.workspace }}:/src \
-            -v ${{ github.workspace }}/generated-docs:/docs \
-            -e ADDITIONAL_DIRECTORIES_TO_OUTPUT="${{ inputs.additional-dir-to-deploy }}" \
-            ${{ inputs.image }}
+            -v "${PWD}/source/${SOURCE_PATH}:/src" \
+            -v "${PWD}/out:/out" \
+            -e LIARA_DOCS_REPO \
+            -e LIARA_DOCS_VERSION \
+            -e LIARA_DOCS_SITE \
+            -e LIARA_ASSETS_PREFIX \
+            "$IMAGE" "${args[@]}"
 
-      - run: |
-          if [ -f "generated-docs/manifest.json" ]; then
-            mv generated-docs/manifest.json manifest.json
+          sudo chown -R "$(id -u):$(id -g)" out
+
+      - name: Describe the build
+        env:
+          REPO: ${{ steps.plan.outputs.repo }}
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          [ -d out/site ] || { echo "::error::the builder produced no site"; exit 1; }
+
+          if [ -f out/site/manifest.json ]; then
+            cp out/site/manifest.json out/manifest.json
+          else
+            echo "::warning::no manifest.json in the build output"
+            echo '{}' > out/manifest.json
           fi
 
-      - uses: actions/upload-artifact@v7
-        with:
-          name: manifest
-          path: manifest.json
+          jq -n --arg repo "$REPO" --arg version "$VERSION" \
+            '{repo: $repo, version: $version, root: false}' > out/deploy.json
+
+          echo "### ${REPO} ${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "$(find out/site -type f | wc -l) files built." >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: docs
-          path: generated-docs
+          name: ${{ inputs.artifact-name }}
+          path: out
+          include-hidden-files: true
+          retention-days: 7

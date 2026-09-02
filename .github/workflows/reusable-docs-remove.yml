@@ -1,0 +1,202 @@
+name: reusable-docs-remove
+
+# Retires one published version of one module.
+#
+# The version is not made to vanish. Its pages are deleted and replaced by a
+# single page that says, in as many words, that this version's documentation
+# was taken offline and where to go instead — and the edge router serves that
+# page, with a 410, for every deep link into the version that used to exist.
+# The alternative, deleting the directory outright, turns a reader's bookmark
+# into a generic 404 that tells them nothing about what happened or where the
+# thing they were reading went.
+
+on:
+  workflow_call:
+    inputs:
+      module:
+        description: Repository name of the module, e.g. `liara-core`.
+        required: true
+        type: string
+
+      version:
+        description: Version to retire, e.g. `1.2.3`.
+        required: true
+        type: string
+
+      reason:
+        description: Shown on the tombstone page. One sentence.
+        required: false
+        type: string
+        default: ''
+
+      successor:
+        description: >
+          Version to send readers to. Empty picks the newest version still
+          online that is ABI-compatible with the one being retired.
+        required: false
+        type: string
+        default: ''
+
+      force:
+        description: Allow retiring `dev` or the module's own `latest`.
+        required: false
+        type: boolean
+        default: false
+
+      dry-run:
+        description: Report what would happen and push nothing.
+        required: false
+        type: boolean
+        default: false
+
+      output-repository:
+        required: true
+        type: string
+
+      output-branch:
+        required: false
+        type: string
+        default: cloudflare-pages
+
+      docs-shared-ref:
+        required: false
+        type: string
+        default: main
+
+    secrets:
+      push-token:
+        required: true
+      read-token:
+        required: false
+
+jobs:
+  remove:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    concurrency:
+      group: docs-publish-${{ inputs.output-repository }}-${{ inputs.output-branch }}
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.output-repository }}
+          ref: ${{ inputs.output-branch }}
+          token: ${{ secrets.push-token }}
+          path: output-repository
+          fetch-depth: 0
+
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          sparse-checkout: |
+            scripts
+            .github/actions
+          path: '.github-shared-core'
+
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/docs-shared
+          ref: ${{ inputs.docs-shared-ref }}
+          sparse-checkout: tools
+          path: .liara-site-tools
+          token: ${{ secrets.read-token || github.token }}
+
+      - name: Check what is being retired
+        id: check
+        env:
+          MODULE: ${{ inputs.module }}
+          VERSION: ${{ inputs.version }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          site=output-repository/site
+          target="$site/${MODULE}/${VERSION}"
+
+          case "$VERSION" in
+            pr-*) echo "::error::previews are torn down by the preview cleanup workflow"; exit 1 ;;
+            */*|..|.|'') echo "::error::not a version: ${VERSION}"; exit 1 ;;
+          esac
+
+          if [ ! -d "$target" ]; then
+            echo "::error::${MODULE} ${VERSION} is not deployed (${target} does not exist)"
+            exit 1
+          fi
+
+          if [ -f "$target/removed.json" ]; then
+            echo "::warning::${MODULE} ${VERSION} is already retired; refreshing its tombstone."
+          fi
+
+          latest=$(jq -r '.metadata.latest // ""' "$site/${MODULE}/manifest.json" 2>/dev/null || echo "")
+
+          if [ "$FORCE" != "true" ]; then
+            if [ "$VERSION" = "dev" ]; then
+              echo "::error::dev is rebuilt continuously; retiring it needs force: true"
+              exit 1
+            fi
+            if [ -n "$latest" ] && [ "$VERSION" = "$latest" ]; then
+              echo "::error::${VERSION} is ${MODULE}'s latest — /${MODULE}/latest/ resolves to it." \
+                   "Release a newer version first, or pass force: true."
+              exit 1
+            fi
+          fi
+
+          echo "latest=${latest}" >> "$GITHUB_OUTPUT"
+          echo "files=$(find "$target" -type f | wc -l)" >> "$GITHUB_OUTPUT"
+
+      - name: Replace the version with a tombstone
+        id: tombstone
+        env:
+          MODULE: ${{ inputs.module }}
+          VERSION: ${{ inputs.version }}
+          REASON: ${{ inputs.reason }}
+          SUCCESSOR: ${{ inputs.successor }}
+        run: |
+          set -euo pipefail
+          args=(--site output-repository/site --repo "$MODULE" --version "$VERSION")
+          if [ -n "$REASON" ];    then args+=(--reason "$REASON"); fi
+          if [ -n "$SUCCESSOR" ]; then args+=(--successor "$SUCCESSOR"); fi
+
+          python3 .liara-site-tools/tools/make-tombstone.py "${args[@]}"
+
+          successor=$(jq -r '.successor // ""' \
+            "output-repository/site/${MODULE}/${VERSION}/removed.json")
+          echo "successor=${successor}" >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github-shared-core/.github/actions/site-refresh
+        with:
+          site: output-repository/site
+          docs-shared-ref: ${{ inputs.docs-shared-ref }}
+          collect-garbage: 'true'
+          token: ${{ secrets.read-token }}
+
+      - name: Summary
+        env:
+          MODULE: ${{ inputs.module }}
+          VERSION: ${{ inputs.version }}
+          FILES: ${{ steps.check.outputs.files }}
+          SUCCESSOR: ${{ steps.tombstone.outputs.successor }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          {
+            echo "### Retired ${MODULE} ${VERSION}"
+            echo
+            echo "- ${FILES} files replaced by a tombstone page"
+            echo "- readers are sent to \`${SUCCESSOR:-latest}\`"
+            if [ "$DRY_RUN" = "true" ]; then echo "- **dry run — nothing was pushed**"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$DRY_RUN" = "true" ]; then
+            git -C output-repository status --short | head -50
+          fi
+
+      - if: ${{ !inputs.dry-run }}
+        run: |
+          bash .github-shared-core/scripts/git-publish.sh \
+            --repo-dir output-repository \
+            --branch "${{ inputs.output-branch }}" \
+            --message "docs: retire ${{ inputs.module }} ${{ inputs.version }}" \
+            --generated site/registry-index.json \
+            --regenerate "$LIARA_INDEX_COMMAND"

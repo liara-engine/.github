@@ -1,0 +1,124 @@
+name: site-refresh
+description: >
+  Bring a checked-out documentation site back in step with what it actually
+  contains: republish the modules registry, rebuild the aggregated navigation
+  index, and optionally collect the content-addressed store.
+
+inputs:
+  site:
+    description: Path to the `site/` directory of the checked-out output repository.
+    required: true
+
+  docs-shared-ref:
+    description: Ref of docs-shared to take `tools/` and `modules-registry.json` from.
+    required: false
+    default: main
+
+  collect-garbage:
+    description: >
+      Also remove content-addressed entries that nothing references any more.
+      Worth it after something was deleted; pointless after something was added.
+    required: false
+    default: 'false'
+
+  grace-days:
+    description: >
+      How long an entry must have been unreferenced before it is collected.
+      Reachability is computed from the committed tree, so a deploy in flight
+      does not count as a reference — see tools/cas-gc.py.
+    required: false
+    default: '7'
+
+  abi-oracle-repo:
+    description: Repository publishing the compiled ABI oracle, under this owner.
+    required: false
+    default: liara-interfaces
+
+  abi-oracle-tag:
+    description: Release to take the oracle from. Empty means the latest release.
+    required: false
+    default: ''
+
+  token:
+    description: Token used to read docs-shared and the oracle release.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+
+  steps:
+    - name: Check out the site tools
+      uses: actions/checkout@v7
+      with:
+        repository: ${{ github.repository_owner }}/docs-shared
+        ref: ${{ inputs.docs-shared-ref }}
+        path: .liara-site-tools
+        sparse-checkout: tools
+        token: ${{ inputs.token || github.token }}
+
+    - name: Fetch the ABI oracle
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token || github.token }}
+        ORACLE_REPO: ${{ github.repository_owner }}/${{ inputs.abi-oracle-repo }}
+        ORACLE_TAG: ${{ inputs.abi-oracle-tag }}
+      run: |
+        set -uo pipefail
+        target="${RUNNER_TEMP}/oracle/liara_abi_oracle"
+
+        args=()
+        if [ -n "$ORACLE_TAG" ]; then args+=("$ORACLE_TAG"); fi
+        args+=(--repo "$ORACLE_REPO" --pattern liara_abi_oracle
+               --dir "${RUNNER_TEMP}/oracle" --clobber)
+
+        if gh release download "${args[@]}" && [ -f "$target" ]; then
+          chmod +x "$target"
+          echo "LIARA_ABI_ORACLE=$target" >> "$GITHUB_ENV"
+          echo "Using the ABI oracle from ${ORACLE_REPO} ${ORACLE_TAG:-(latest)}."
+        else
+          echo "::warning::No liara_abi_oracle asset on ${ORACLE_REPO} ${ORACLE_TAG:-(latest)};" \
+               "the navigation index will carry no ABI compatibility verdicts."
+          echo "LIARA_ABI_ORACLE=" >> "$GITHUB_ENV"
+        fi
+
+    - name: Collect the content-addressed store
+      if: inputs.collect-garbage == 'true'
+      shell: bash
+      env:
+        SITE: ${{ inputs.site }}
+        GRACE_DAYS: ${{ inputs.grace-days }}
+      run: |
+        set -uo pipefail
+        if ! python3 .liara-site-tools/tools/cas-gc.py "$SITE" --grace-days "$GRACE_DAYS"; then
+          echo "::warning::the asset store could not be collected; continuing."
+        fi
+
+    - name: Publish the modules registry
+      shell: bash
+      env:
+        SITE: ${{ inputs.site }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$SITE"
+        cp .liara-site-tools/modules-registry.json "$SITE/modules-registry.json"
+
+    - name: Rebuild the navigation index
+      shell: bash
+      env:
+        SITE: ${{ inputs.site }}
+      run: |
+        set -euo pipefail
+        tools="${GITHUB_WORKSPACE}/.liara-site-tools"
+        case "$SITE" in
+          /*) site="$SITE" ;;
+          *)  site="${GITHUB_WORKSPACE}/${SITE}" ;;
+        esac
+
+        args=("$site" --registry "${tools}/modules-registry.json")
+        if [ -n "${LIARA_ABI_ORACLE:-}" ]; then args+=(--abi-oracle "$LIARA_ABI_ORACLE"); fi
+
+        python3 "${tools}/tools/build-registry-index.py" "${args[@]}"
+
+        printf 'LIARA_INDEX_COMMAND=%s\n' \
+          "python3 ${tools}/tools/build-registry-index.py ${args[*]}" >> "$GITHUB_ENV"
