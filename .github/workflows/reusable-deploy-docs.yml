@@ -101,10 +101,31 @@ jobs:
           site=output-repository/site
           mkdir -p "$site"
 
+          # The content-addressed store is the one thing in an artifact that
+          # belongs to the whole site rather than to this build: root-absolute
+          # URLs from every version already deployed point into it. So it is
+          # taken out of the artifact and merged into the site root, never
+          # replaced — an identical name means identical bytes, and removing
+          # what nothing references any more is cas-gc.py's job.
+          #
+          # This runs before the two cases below because the hub produces a
+          # store of its own at the same top level it owns, and the sweep that
+          # gives it that ownership used to delete the site's entire store and
+          # put back only the handful of files the hub itself had just built.
+          # Every module page then pointed at assets that were no longer there.
+          if [ -d artifact/site/_cas ]; then
+            mkdir -p "$site/_cas"
+            cp -a artifact/site/_cas/. "$site/_cas/"
+            rm -rf artifact/site/_cas
+            echo "Merged the content-addressed store into the site root."
+          fi
+
           if [ "$root" = "true" ]; then
             # The hub owns exactly the top-level entries it produces, and
-            # nothing else at the site root: the modules, the store, the
-            # registry and the index all live beside it and must survive.
+            # nothing else at the site root: the modules, the registry and the
+            # index all live beside it and must survive. The store would be in
+            # that list too, which is the trap — it is produced by the hub as
+            # well, and has already been merged out of the artifact above.
             while IFS= read -r entry; do
               rm -rf "${site:?}/$(basename "$entry")"
             done < <(find artifact/site -mindepth 1 -maxdepth 1)
@@ -114,14 +135,6 @@ jobs:
           else
             [ -n "$repo" ] && [ -n "$version" ] || {
               echo "::error::deploy.json names no repo/version"; exit 1; }
-
-            # Root-absolute URLs point into the store at the site root, so the
-            # store cannot travel inside the version directory.
-            if [ -d artifact/site/_cas ]; then
-              mkdir -p "$site/_cas"
-              cp -a artifact/site/_cas/. "$site/_cas/"
-              rm -rf artifact/site/_cas
-            fi
 
             target="$site/$repo/$version"
             rm -rf "$target"
