@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/liara-engine/.github/compare/v1.1.5...v1.2.0) (2026-09-02)
+
+
+### Features
+
+* **docs:** streamline documentation publishing workflow and add git-publish script ([e2e3a49](https://github.com/liara-engine/.github/commit/e2e3a490601a85ac45e1e8f4f672d571cd76cb1a))
+
 ## [1.1.5](https://github.com/liara-engine/.github/compare/v1.1.4...v1.1.5) (2026-09-01)
 
 
