@@ -54,9 +54,12 @@ runs:
         repository: ${{ github.repository_owner }}/docs-shared
         ref: ${{ inputs.docs-shared-ref }}
         path: .liara-site-tools
-        sparse-checkout: |
-          tools
-          modules-registry.json
+        # `tools` only: a sparse checkout is in cone mode, where every pattern
+        # has to name a directory — `git sparse-checkout set` refuses a file
+        # with "'modules-registry.json' is not a directory" — and where the
+        # repository's root-level files are checked out anyway. The registry
+        # is one of them, so it arrives with this and the steps below find it.
+        sparse-checkout: tools
         token: ${{ inputs.token || github.token }}
 
     - name: Fetch the ABI oracle
