@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/liara-engine/.github/compare/v1.2.0...v2.0.0) (2026-09-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **docs:** move all workflows to the astro/starlight pipeline
+
+### Features
+
+* **docs:** move all workflows to the astro/starlight pipeline ([256d1d1](https://github.com/liara-engine/.github/commit/256d1d19669f0cc28ae11ec885114dc01c1cfd48))
+
 ## [1.2.0](https://github.com/liara-engine/.github/compare/v1.1.5...v1.2.0) (2026-09-02)
 
 
