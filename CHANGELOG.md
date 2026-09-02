@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.4](https://github.com/liara-engine/.github/compare/v2.0.3...v2.0.4) (2026-09-02)
+
+
+### Bug Fixes
+
+* **action:** adjust sparse-checkout to only include tools directory ([f38bad5](https://github.com/liara-engine/.github/commit/f38bad5cab3202a428009af5935e8e5a4d8d7650))
+
 ## [2.0.3](https://github.com/liara-engine/.github/compare/v2.0.2...v2.0.3) (2026-09-02)
 
 
