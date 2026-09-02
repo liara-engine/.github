@@ -127,4 +127,7 @@ runs:
 
     - name: Rebuild the site-wide search index
       shell: bash
-      run: python3 "${TOOLS}/search-index.py" "${SITE_DIR}"
+      env:
+        SITE: ${{ inputs.site }}
+        tools: ${{ github.workspace }}/.liara-site-tools
+      run: python3 "${tools}/search-index.py" "${SITE}"
