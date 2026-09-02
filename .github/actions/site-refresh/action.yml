@@ -124,3 +124,15 @@ runs:
 
         printf 'LIARA_INDEX_COMMAND=%s\n' \
           "python3 ${tools}/tools/build-registry-index.py ${args[*]}" >> "$GITHUB_ENV"
+
+    - name: Rebuild the site-wide search index
+      shell: bash
+      env:
+        SITE: ${{ inputs.site }}
+      run: |
+        tools="${GITHUB_WORKSPACE}/.liara-site-tools"
+        case "$SITE" in
+          /*) site="$SITE" ;;
+          *)  site="${GITHUB_WORKSPACE}/${SITE}" ;;
+        esac
+        python3 "${tools}/tools/search-index.py" "${site}"
