@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/liara-engine/.github/compare/v2.1.0...v2.1.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **action:** update search index rebuild step to use environment variables ([8c9e899](https://github.com/liara-engine/.github/commit/8c9e899a91d513b5f2040e73e2e35dd10393652e))
+
 ## [2.1.0](https://github.com/liara-engine/.github/compare/v2.0.1...v2.1.0) (2026-09-02)
 
 
