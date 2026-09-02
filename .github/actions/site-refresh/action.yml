@@ -129,4 +129,10 @@ runs:
       shell: bash
       env:
         SITE: ${{ inputs.site }}
-      run: python3 "${tools}/search-index.py" "${SITE}"
+      run: |
+        tools="${GITHUB_WORKSPACE}/.liara-site-tools"
+        case "$SITE" in
+          /*) site="$SITE" ;;
+          *)  site="${GITHUB_WORKSPACE}/${SITE}" ;;
+        esac
+        python3 "${tools}/search-index.py" "${site}"
