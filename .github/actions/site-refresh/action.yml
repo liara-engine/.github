@@ -54,7 +54,9 @@ runs:
         repository: ${{ github.repository_owner }}/docs-shared
         ref: ${{ inputs.docs-shared-ref }}
         path: .liara-site-tools
-        sparse-checkout: tools
+        sparse-checkout: |
+          tools
+          modules-registry.json
         token: ${{ inputs.token || github.token }}
 
     - name: Fetch the ABI oracle
