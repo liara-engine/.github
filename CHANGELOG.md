@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/liara-engine/.github/compare/v2.1.1...v2.1.2) (2026-09-02)
+
+
+### Bug Fixes
+
+* **action:** remove hardcoded tools path from search index script ([d699372](https://github.com/liara-engine/.github/commit/d699372967cee487a75424aa9288fafdba690a06))
+
 ## [2.1.1](https://github.com/liara-engine/.github/compare/v2.1.0...v2.1.1) (2026-09-02)
 
 
