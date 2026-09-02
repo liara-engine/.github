@@ -45,7 +45,7 @@ jobs:
       pull-requests: write
 
     concurrency:
-      group: docs-publish-${{ inputs.output-repository }}-${{ github.repository }}
+      group: docs-publish-${{ inputs.output-repository }}-${{ inputs.output-branch }}
       cancel-in-progress: false
 
     steps:
@@ -55,7 +55,12 @@ jobs:
           ref: ${{ inputs.output-branch }}
           token: ${{ secrets.push-token }}
           path: output-repository
-          fetch-depth: '0'
+
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          sparse-checkout: 'scripts/'
+          path: '.github-shared-core'
 
       - uses: actions/download-artifact@v8
         with:
@@ -73,20 +78,11 @@ jobs:
           mkdir -p "$output_path"
           cp -a generated-docs/* "$output_path/"
 
-      - name: Commit & push
-        run: |
-          set -euo pipefail
-          cd output-repository
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-          git commit -m "Docs preview pr-${{ github.event.number }} for ${GITHUB_REPOSITORY}"
-          git pull --rebase origin "${{ inputs.output-branch }}" || echo "Nothing to rebase"
-          git push origin HEAD:"${{ inputs.output-branch }}"
+      - run: |
+          bash .github-shared-core/scripts/git-publish.sh \
+            --repo-dir output-repository \
+            --branch "${{ inputs.output-branch }}" \
+            --message "Update generated docs for $GITHUB_REPOSITORY"
 
       - name: Comment preview URL
         uses: marocchino/sticky-pull-request-comment@v3.0.5

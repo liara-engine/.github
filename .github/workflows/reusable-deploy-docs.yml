@@ -43,42 +43,22 @@ jobs:
       contents: write
 
     concurrency:
-      group: docs-publish-${{ github.repository }}
+      group: docs-publish-${{ inputs.output-repository }}-${{ inputs.output-branch }}
       cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v7
         with:
           repository: ${{ inputs.output-repository }}
+          ref: ${{ inputs.output-branch }}
           token: ${{ secrets.push-token }}
           path: output-repository
-          fetch-depth: '0'
 
-      - run: |
-          cd output-repository
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          cd ..
-
-      - name: Prepare output branch
-        run: |
-          cd output-repository
-
-          if git ls-remote --exit-code --heads origin "${{ inputs.output-branch }}"; then
-              echo "Branch exists"
-              git checkout "${{ inputs.output-branch }}"
-              git pull origin "${{ inputs.output-branch }}"
-          else
-              echo "Branch does not exist, creating it"
-              git checkout --orphan "${{ inputs.output-branch }}"
-              git rm -rf . || true
-              echo "# Documentation" > README.md
-              mkdir -p site
-              echo "<DOCTYPE html><html><head><title>Documentation</title></head><body><h1>Documentation</h1><p>This branch is used to host generated documentation.</p></body></html>" > site/index.html
-              git add README.md
-              git commit -m "Initialize documentation branch"
-              git push origin "${{ inputs.output-branch }}"
-          fi
+      - uses: actions/checkout@v7
+        with:
+          repository: '${{ github.repository_owner }}/.github'
+          sparse-checkout: 'scripts/'
+          path: '.github-shared-core'
 
       - uses: actions/download-artifact@v8
         with:
@@ -133,15 +113,7 @@ jobs:
           fi
 
       - run: |
-          cd output-repository
-          git add .
-          
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-          
-          git commit -m "Update generated docs for $GITHUB_REPOSITORY"
-          
-          git pull --rebase origin ${{ inputs.output-branch }} || echo "No changes to pull"
-          git push origin ${{ inputs.output-branch }}
+          bash .github-shared-core/scripts/git-publish.sh \
+            --repo-dir output-repository \
+            --branch "${{ inputs.output-branch }}" \
+            --message "Update generated docs for $GITHUB_REPOSITORY"
