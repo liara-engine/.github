@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/liara-engine/.github/compare/v2.0.1...v2.1.0) (2026-09-02)
+
+
+### Features
+
+* **action:** add step to rebuild site-wide search index ([b5a339b](https://github.com/liara-engine/.github/commit/b5a339bd41d69f07065ce5b0e0786d0aabce7877))
+
 ## [2.0.1](https://github.com/liara-engine/.github/compare/v2.0.0...v2.0.1) (2026-09-02)
 
 
