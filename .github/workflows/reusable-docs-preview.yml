@@ -48,7 +48,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: liara-engine/.github/.github/workflows/reusable-build-docs.yml@v1
+    uses: liara-engine/.github/.github/workflows/reusable-build-docs.yml@v2
     with:
       image: ${{ inputs.image }}
       version: pr-${{ github.event.number }}
@@ -63,7 +63,7 @@ jobs:
     needs: build
     permissions:
       contents: read
-    uses: liara-engine/.github/.github/workflows/reusable-deploy-docs.yml@v1
+    uses: liara-engine/.github/.github/workflows/reusable-deploy-docs.yml@v2
     with:
       output-repository: ${{ inputs.output-repository }}
       output-branch: ${{ inputs.output-branch }}
