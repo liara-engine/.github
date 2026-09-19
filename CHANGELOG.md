@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.5](https://github.com/liara-engine/.github/compare/v2.0.4...v2.0.5) (2026-09-19)
+
+
+### Bug Fixes
+
+* **action:** enhance ABI resolution logic and improve error handling ([5544f93](https://github.com/liara-engine/.github/commit/5544f936ba0bca5a05142de66582521dd9b2d44f))
+
 ## [2.0.4](https://github.com/liara-engine/.github/compare/v2.0.3...v2.0.4) (2026-09-02)
 
 
