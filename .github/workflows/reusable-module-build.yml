@@ -25,6 +25,23 @@ on:
         type: string
         default: ''
 
+      abi-version:
+        description: >
+          Which of this repository's versions names the ABI to build against: `dev` for the
+          working tree, `latest` for the released line, or an explicit X.Y.Z. They routinely
+          differ, which is why this is a choice and not a guess.
+        required: false
+        type: string
+        default: 'dev'
+
+      abi-artifact:
+        description: >
+          Resolve the ABI within this artifact's version line rather than the repository's own.
+          `liara` is infrastructure and declares its launcher's compatibility under `launcher`.
+        required: false
+        type: string
+        default: ''
+
       ctest-exclude-labels:
         required: false
         type: string
@@ -93,7 +110,8 @@ jobs:
         run: |
           python3 .github-shared-core/scripts/resolve_module_refs.py \
             --repo-dir module \
-            --module '${{ inputs.module }}' \
+            --version '${{ inputs.abi-version }}' \
+            --artifact '${{ inputs.abi-artifact }}' \
             --override '${{ inputs.interfaces-ref }}' \
             --github-output "$GITHUB_OUTPUT"
 
