@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.7](https://github.com/liara-engine/.github/compare/v2.0.6...v2.0.7) (2026-09-25)
+
+
+### Bug Fixes
+
+* **abi:** refine private macro exclusion logic for ABI in function headers ([b3d791d](https://github.com/liara-engine/.github/commit/b3d791dfa67c90f64369b6314f70a33d01067ef5))
+
 ## [2.0.6](https://github.com/liara-engine/.github/compare/v2.0.5...v2.0.6) (2026-09-25)
 
 
