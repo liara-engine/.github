@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.6](https://github.com/liara-engine/.github/compare/v2.0.5...v2.0.6) (2026-09-25)
+
+
+### Bug Fixes
+
+* **abi:** exclude private macros from ABI when header ends with _functions.h ([4e05c32](https://github.com/liara-engine/.github/commit/4e05c326033e49dc3ee8855c9fe0a016d63ecf72))
+* **action:** update clang version to 20 in toolchain installation ([4d551a4](https://github.com/liara-engine/.github/commit/4d551a41ddb0a5bd7016ab8f424e8a10349ad2a0))
+
 ## [2.0.5](https://github.com/liara-engine/.github/compare/v2.0.4...v2.0.5) (2026-09-19)
 
 
