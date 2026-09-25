@@ -73,16 +73,16 @@ runs:
         sudo apt-get update
         case "$TOOLCHAIN" in
           gcc)   sudo apt-get install -y --no-install-recommends gcc-14 g++-14 ;;
-          clang) sudo apt-get install -y --no-install-recommends clang-18 clang-tools-18 ;;
-          *)     sudo apt-get install -y --no-install-recommends gcc-14 g++-14 clang-18 clang-tools-18 ;;
+          clang) sudo apt-get install -y --no-install-recommends clang-20 clang-tools-20 ;;
+          *)     sudo apt-get install -y --no-install-recommends gcc-14 g++-14 clang-20 clang-tools-20 ;;
         esac
         sudo apt-get install -y --no-install-recommends ninja-build mold
 
         mkdir -p "$HOME/.liara-toolchain"
         [ -x /usr/bin/gcc-14 ]     && ln -sf /usr/bin/gcc-14     "$HOME/.liara-toolchain/gcc"
         [ -x /usr/bin/g++-14 ]     && ln -sf /usr/bin/g++-14     "$HOME/.liara-toolchain/g++"
-        [ -x /usr/bin/clang-18 ]   && ln -sf /usr/bin/clang-18   "$HOME/.liara-toolchain/clang"
-        [ -x /usr/bin/clang++-18 ] && ln -sf /usr/bin/clang++-18 "$HOME/.liara-toolchain/clang++"
+        [ -x /usr/bin/clang-20 ]   && ln -sf /usr/bin/clang-20   "$HOME/.liara-toolchain/clang"
+        [ -x /usr/bin/clang++-20 ] && ln -sf /usr/bin/clang++-20 "$HOME/.liara-toolchain/clang++"
         echo "$HOME/.liara-toolchain" >> "$GITHUB_PATH"
 
     # Optional in the toolchain, not optional in CI: without them the cross-language tests are
