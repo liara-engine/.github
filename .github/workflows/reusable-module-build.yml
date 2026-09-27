@@ -45,7 +45,7 @@ on:
       ctest-exclude-labels:
         required: false
         type: string
-        default: 'gpu|slow'
+        default: 'gpu|slow|display'
 
       github-repo-version:
         required: false

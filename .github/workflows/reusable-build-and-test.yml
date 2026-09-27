@@ -47,7 +47,9 @@ on:
         default: 'main'
 
       meta-ref:
-        description: 'Ref of the meta repository driving the workspace.'
+        description: >
+          Ref of the meta repository driving the workspace. Left at `main`, a pull request whose branch also exists in
+          the meta repository is built against that branch instead; any other value is used as given.
         required: false
         type: string
         default: 'main'

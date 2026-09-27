@@ -22,7 +22,9 @@ inputs:
     required: false
     default: 'false'
   meta-ref:
-    description: 'Ref of the meta repository driving the workspace.'
+    description: >
+      Ref of the meta repository driving the workspace. Left at `main`, a pull request whose branch also exists in the
+      meta repository is built against that branch instead; any other value is used as given.
     required: false
     default: 'main'
 
@@ -44,22 +46,37 @@ runs:
         path: _root
 
     # A pull request whose branch also exists in a sibling repository is built against that branch there, so the
-    # repositories of one cross-repository change go green together. The meta repository has to be resolved here,
-    # before liara.py exists; the modules are resolved by `liara.py setup --sibling-branch` below. An explicit
-    # meta-ref wins.
+    # repositories of one cross-repository change go green together. This step names the branch to pair on, or
+    # nothing. Release and dependency bots open branches with the same name in every repository
+    # (release-please--branches--main, renovate/...), and pairing those would build each module's pending release
+    # against the others', a combination that never ships, so they pair with nothing.
+    - id: sibling
+      shell: bash
+      env:
+        HEAD_REF: ${{ github.head_ref }}
+      run: |
+        set -euo pipefail
+        branch="$HEAD_REF"
+        case "$branch" in
+          release-please--*|renovate/*) branch="" ;;
+        esac
+        echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+
+    # The meta repository has to be resolved here, before liara.py exists; the modules are resolved by
+    # `liara.py setup --sibling-branch` below. A meta-ref other than main is used as given.
     - id: meta
       if: inputs.module != 'liara'
       shell: bash
       env:
-        HEAD_REF: ${{ github.head_ref }}
+        SIBLING_BRANCH: ${{ steps.sibling.outputs.branch }}
         META_REF: ${{ inputs.meta-ref }}
         OWNER: ${{ github.repository_owner }}
       run: |
         set -euo pipefail
         ref="$META_REF"
-        if [ "$META_REF" = "main" ] && [ -n "$HEAD_REF" ] \
-           && git ls-remote --exit-code --heads "https://github.com/${OWNER}/liara" "refs/heads/${HEAD_REF}" >/dev/null; then
-          ref="$HEAD_REF"
+        if [ "$META_REF" = "main" ] && [ -n "$SIBLING_BRANCH" ] \
+           && git ls-remote --exit-code --heads "https://github.com/${OWNER}/liara" "refs/heads/${SIBLING_BRANCH}" >/dev/null; then
+          ref="$SIBLING_BRANCH"
         fi
         echo "ref=${ref}" >> "$GITHUB_OUTPUT"
 
@@ -130,11 +147,11 @@ runs:
     - shell: bash
       working-directory: _root
       env:
-        HEAD_REF: ${{ github.head_ref }}
+        SIBLING_BRANCH: ${{ steps.sibling.outputs.branch }}
       run: |
         set -euo pipefail
         sibling=()
-        if [ -n "$HEAD_REF" ]; then sibling=(--sibling-branch "$HEAD_REF"); fi
+        if [ -n "$SIBLING_BRANCH" ]; then sibling=(--sibling-branch "$SIBLING_BRANCH"); fi
         python3 scripts/liara.py setup --no-pull --no-configure "${sibling[@]}"
 
         # What this run was built against, so a green run says it.
