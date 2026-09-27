@@ -33,10 +33,12 @@ on:
           ]
 
       ctest-exclude-labels:
-        description: 'CTest label regex to exclude. Selection is by exclusion; see TOOLING.md 6.2.'
+        description: >
+          CTest label regex to exclude. Selection is by exclusion: `gpu` needs a Vulkan device and `display` a real
+          window-system session, and no GitHub-hosted runner offers either.
         required: false
         type: string
-        default: 'gpu'
+        default: 'gpu|display'
 
       github-repo-version:
         description: 'Ref of the org .github repository the composite action is taken from.'
