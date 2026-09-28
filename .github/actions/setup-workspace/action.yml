@@ -22,7 +22,9 @@ inputs:
     required: false
     default: 'false'
   meta-ref:
-    description: 'Ref of the meta repository driving the workspace.'
+    description: >
+      Ref of the meta repository driving the workspace. Left at `main`, a pull request whose branch also exists in the
+      meta repository is built against that branch instead; any other value is used as given.
     required: false
     default: 'main'
 
@@ -43,11 +45,46 @@ runs:
       with:
         path: _root
 
+    # A pull request whose branch also exists in a sibling repository is built against that branch there, so the
+    # repositories of one cross-repository change go green together. This step names the branch to pair on, or
+    # nothing. Release and dependency bots open branches with the same name in every repository
+    # (release-please--branches--main, renovate/...), and pairing those would build each module's pending release
+    # against the others', a combination that never ships, so they pair with nothing.
+    - id: sibling
+      shell: bash
+      env:
+        HEAD_REF: ${{ github.head_ref }}
+      run: |
+        set -euo pipefail
+        branch="$HEAD_REF"
+        case "$branch" in
+          release-please--*|renovate/*) branch="" ;;
+        esac
+        echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+
+    # The meta repository has to be resolved here, before liara.py exists; the modules are resolved by
+    # `liara.py setup --sibling-branch` below. A meta-ref other than main is used as given.
+    - id: meta
+      if: inputs.module != 'liara'
+      shell: bash
+      env:
+        SIBLING_BRANCH: ${{ steps.sibling.outputs.branch }}
+        META_REF: ${{ inputs.meta-ref }}
+        OWNER: ${{ github.repository_owner }}
+      run: |
+        set -euo pipefail
+        ref="$META_REF"
+        if [ "$META_REF" = "main" ] && [ -n "$SIBLING_BRANCH" ] \
+           && git ls-remote --exit-code --heads "https://github.com/${OWNER}/liara" "refs/heads/${SIBLING_BRANCH}" >/dev/null; then
+          ref="$SIBLING_BRANCH"
+        fi
+        echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+
     - if: inputs.module != 'liara'
       uses: actions/checkout@v7
       with:
         repository: '${{ github.repository_owner }}/liara'
-        ref: '${{ inputs.meta-ref }}'
+        ref: '${{ steps.meta.outputs.ref }}'
         path: _root
 
     - if: inputs.module != 'liara'
@@ -77,6 +114,7 @@ runs:
           *)     sudo apt-get install -y --no-install-recommends gcc-14 g++-14 clang-20 clang-tools-20 ;;
         esac
         sudo apt-get install -y --no-install-recommends ninja-build mold
+        bash "${{ github.action_path }}/../../../scripts/install-sdl3-build-deps.sh"
 
         mkdir -p "$HOME/.liara-toolchain"
         [ -x /usr/bin/gcc-14 ]     && ln -sf /usr/bin/gcc-14     "$HOME/.liara-toolchain/gcc"
@@ -103,12 +141,28 @@ runs:
         echo "VCPKG_DEFAULT_BINARY_CACHE=${RUNNER_TEMP}/vcpkg-cache" >> "$GITHUB_ENV"
         mkdir -p "${RUNNER_TEMP}/vcpkg-cache"
 
-    # Assemble only: the other modules are cloned from their default branches, the superbuild
-    # CMakeLists, the merged manifest and the presets are generated, and nothing is configured
-    # yet — the cache below has to be restored first.
+    # Assemble only: the other modules are cloned, at the pull request's branch where they have one
+    # and at their default branch otherwise; the superbuild CMakeLists, the merged manifest and the
+    # presets are generated, and nothing is configured yet — the cache below has to be restored first.
     - shell: bash
       working-directory: _root
-      run: python3 scripts/liara.py setup --no-pull --no-configure
+      env:
+        SIBLING_BRANCH: ${{ steps.sibling.outputs.branch }}
+      run: |
+        set -euo pipefail
+        sibling=()
+        if [ -n "$SIBLING_BRANCH" ]; then sibling=(--sibling-branch "$SIBLING_BRANCH"); fi
+        python3 scripts/liara.py setup --no-pull --no-configure "${sibling[@]}"
+
+        # What this run was built against, so a green run says it.
+        {
+          echo "### Workspace"
+          echo "- liara: $(git rev-parse --short HEAD) $(git log -1 --format=%s)"
+          for d in workspace/*/; do
+            [ -d "${d}.git" ] || continue
+            echo "- $(basename "$d"): $(git -C "$d" rev-parse --short HEAD) $(git -C "$d" log -1 --format=%s)"
+          done
+        } >> "$GITHUB_STEP_SUMMARY"
 
     - uses: actions/cache@v6
       with:

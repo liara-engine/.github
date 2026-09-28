@@ -45,7 +45,7 @@ on:
       ctest-exclude-labels:
         required: false
         type: string
-        default: 'gpu|slow'
+        default: 'gpu|slow|display'
 
       github-repo-version:
         required: false
@@ -90,6 +90,7 @@ jobs:
           cp _presets/scripts/CMakePresets.json.template module/CMakePresets.json
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends clang-20 clang-tools-20 ninja-build mold
+          bash .github-shared-core/scripts/install-sdl3-build-deps.sh
           mkdir -p "$HOME/.liara-toolchain"
           ln -sf /usr/bin/clang-20   "$HOME/.liara-toolchain/clang"
           ln -sf /usr/bin/clang++-20 "$HOME/.liara-toolchain/clang++"
