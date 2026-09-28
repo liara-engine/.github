@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/liara-engine/.github/compare/v2.0.7...v2.1.0) (2026-09-28)
+
+
+### Features
+
+* sibling branches ([#47](https://github.com/liara-engine/.github/issues/47)) ([af81101](https://github.com/liara-engine/.github/commit/af81101abc91f7a3cb202bb9ad2f88df3b7aa677))
+
 ## [2.0.7](https://github.com/liara-engine/.github/compare/v2.0.6...v2.0.7) (2026-09-25)
 
 
