@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.3](https://github.com/liara-engine/.github/compare/v2.1.2...v2.1.3) (2026-10-31)
+
+
+### Bug Fixes
+
+* **deps:** add additional dependencies for SDL3 build ([19ba6ee](https://github.com/liara-engine/.github/commit/19ba6eeb40a4d13d7dd2b8e6605780bfdd26422c))
+
 ## [2.1.2](https://github.com/liara-engine/.github/compare/v2.1.1...v2.1.2) (2026-10-31)
 
 
