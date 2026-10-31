@@ -5,5 +5,5 @@
 set -euo pipefail
 
 sudo apt-get install -y --no-install-recommends \
-    libx11-dev libxft-dev libxext-dev libxcursor-dev libxi-dev \
+    libx11-dev libxft-dev libxext-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev libxss-dev libxcomposite-dev libxdamage-dev \
     libwayland-dev libxkbcommon-dev libegl1-mesa-dev
