@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/liara-engine/.github/compare/v2.1.1...v2.1.2) (2026-10-31)
+
+
+### Bug Fixes
+
+* **deps:** add libxi-dev to SDL3 build dependencies ([1a421b2](https://github.com/liara-engine/.github/commit/1a421b230c6d630dc983e6653fbe7aa65636d3fc))
+
 ## [2.1.1](https://github.com/liara-engine/.github/compare/v2.1.0...v2.1.1) (2026-10-31)
 
 
