@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/liara-engine/.github/compare/v2.1.0...v2.1.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **deps:** add libxcursor-dev to SDL3 build dependencies ([36d8e3f](https://github.com/liara-engine/.github/commit/36d8e3f2dc58d4ace3de353e096fbfb91b041ceb))
+
 ## [2.1.0](https://github.com/liara-engine/.github/compare/v2.0.7...v2.1.0) (2026-09-28)
 
 
