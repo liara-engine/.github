@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/liara-engine/.github/compare/v2.2.0...v2.2.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* **deps:** correct installation command for Vulkan validation layers ([d83e0bb](https://github.com/liara-engine/.github/commit/d83e0bbcdf4084a529ec13cd019b88283c2cb952))
+
 ## [2.2.0](https://github.com/liara-engine/.github/compare/v2.1.3...v2.2.0) (2026-11-13)
 
 
