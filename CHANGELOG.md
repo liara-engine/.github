@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/liara-engine/.github/compare/v2.1.3...v2.2.0) (2026-11-13)
+
+
+### Features
+
+* **test:** add Vulkan validation layers installation option for testing ([32757fb](https://github.com/liara-engine/.github/commit/32757fb27ff6356f6ec48734053fc358b4d8df14))
+
 ## [2.1.3](https://github.com/liara-engine/.github/compare/v2.1.2...v2.1.3) (2026-10-31)
 
 
