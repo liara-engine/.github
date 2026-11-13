@@ -42,6 +42,12 @@ on:
         type: string
         default: ''
 
+      needs-vulkan-validation-layers:
+        description: 'Whether to install the Vulkan validation layers for testing. This is only relevant if the module has Vulkan tests.'
+        required: false
+        type: boolean
+        default: false
+
       ctest-exclude-labels:
         required: false
         type: string
@@ -90,6 +96,9 @@ jobs:
           cp _presets/scripts/CMakePresets.json.template module/CMakePresets.json
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends clang-20 clang-tools-20 ninja-build mold
+          if ${{ inputs.needs-vulkan-validation-layers }}; then
+            sudo apt-get install -y --no-install-recommends vulkan-validation-layers
+          fi
           bash .github-shared-core/scripts/install-sdl3-build-deps.sh
           mkdir -p "$HOME/.liara-toolchain"
           ln -sf /usr/bin/clang-20   "$HOME/.liara-toolchain/clang"

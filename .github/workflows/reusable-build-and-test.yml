@@ -21,12 +21,12 @@ on:
         type: string
         default: >-
           [
-            {"name": "linux-gcc-debug",      "os": "ubuntu-24.04",  "configure": "linux-debug-gcc",           "build": "linux-debug-gcc",           "test": "linux-debug-gcc",           "toolchain": "gcc",   "cross-language": true},
-            {"name": "linux-gcc-release",    "os": "ubuntu-24.04",  "configure": "linux-release-gcc",         "build": "linux-release-gcc",         "test": "linux-release-gcc",         "toolchain": "gcc",   "cross-language": false},
-            {"name": "linux-clang-debug",    "os": "ubuntu-24.04",  "configure": "linux-debug-clang",         "build": "linux-debug-clang",         "test": "linux-debug-clang",         "toolchain": "clang", "cross-language": true},
-            {"name": "linux-clang-release",  "os": "ubuntu-24.04",  "configure": "linux-release-clang",       "build": "linux-release-clang",       "test": "linux-release-clang",       "toolchain": "clang", "cross-language": false},
-            {"name": "linux-shared-link",    "os": "ubuntu-24.04",  "configure": "linux-debug-clang-link",    "build": "linux-debug-clang-link",    "test": "linux-debug-clang-link",    "toolchain": "clang", "cross-language": false},
-            {"name": "linux-shared-runtime", "os": "ubuntu-24.04",  "configure": "linux-debug-clang-runtime", "build": "linux-debug-clang-runtime", "test": "linux-debug-clang-runtime", "toolchain": "clang", "cross-language": false},
+            {"name": "linux-gcc-debug",      "os": "ubuntu-24.04",  "configure": "linux-debug-gcc",           "build": "linux-debug-gcc",           "test": "linux-debug-gcc",           "toolchain": "gcc",   "cross-language": true,  "vulkan-validation-layers": true},
+            {"name": "linux-gcc-release",    "os": "ubuntu-24.04",  "configure": "linux-release-gcc",         "build": "linux-release-gcc",         "test": "linux-release-gcc",         "toolchain": "gcc",   "cross-language": false, "vulkan-validation-layers": false},
+            {"name": "linux-clang-debug",    "os": "ubuntu-24.04",  "configure": "linux-debug-clang",         "build": "linux-debug-clang",         "test": "linux-debug-clang",         "toolchain": "clang", "cross-language": true,  "vulkan-validation-layers": true},
+            {"name": "linux-clang-release",  "os": "ubuntu-24.04",  "configure": "linux-release-clang",       "build": "linux-release-clang",       "test": "linux-release-clang",       "toolchain": "clang", "cross-language": false, "vulkan-validation-layers": false},
+            {"name": "linux-shared-link",    "os": "ubuntu-24.04",  "configure": "linux-debug-clang-link",    "build": "linux-debug-clang-link",    "test": "linux-debug-clang-link",    "toolchain": "clang", "cross-language": false, "vulkan-validation-layers": true},
+            {"name": "linux-shared-runtime", "os": "ubuntu-24.04",  "configure": "linux-debug-clang-runtime", "build": "linux-debug-clang-runtime", "test": "linux-debug-clang-runtime", "toolchain": "clang", "cross-language": false, "vulkan-validation-layers": true},
             {"name": "windows-debug",        "os": "windows-2022",  "configure": "windows",                   "build": "windows-debug",             "test": "windows-debug",             "toolchain": "",      "cross-language": false},
             {"name": "windows-release",      "os": "windows-2022",  "configure": "windows",                   "build": "windows-release",           "test": "windows-release",           "toolchain": "",      "cross-language": false},
             {"name": "windows-runtime",      "os": "windows-2022",  "configure": "windows-runtime",           "build": "windows-debug-runtime",     "test": "windows-debug-runtime",     "toolchain": "",      "cross-language": false}
@@ -81,6 +81,7 @@ jobs:
           configure-preset: ${{ matrix.leg.configure }}
           toolchain: ${{ matrix.leg.toolchain }}
           cross-language: ${{ matrix.leg['cross-language'] }}
+          vulkan-validation-layers: ${{ matrix.leg['validation-layers'] }}
           meta-ref: ${{ inputs.meta-ref }}
 
       - if: failure()

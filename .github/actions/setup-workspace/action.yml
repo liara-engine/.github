@@ -21,6 +21,10 @@ inputs:
     description: 'Whether to install Zig and Rust for cross-language tests. Linux only.'
     required: false
     default: 'false'
+  vulkan-validation-layers:
+    description: 'Whether to install the Vulkan validation layers for testing.'
+    required: false
+    default: 'false'
   meta-ref:
     description: >
       Ref of the meta repository driving the workspace. Left at `main`, a pull request whose branch also exists in the
@@ -114,6 +118,9 @@ runs:
           *)     sudo apt-get install -y --no-install-recommends gcc-14 g++-14 clang-20 clang-tools-20 ;;
         esac
         sudo apt-get install -y --no-install-recommends ninja-build mold
+        if [ "${{ inputs.vulkan-validation-layers }}" = "true" ]; then
+          sudo apt-get install -y --no-install-recommends vulkan-validation-layers
+        fi
         bash "${{ github.action_path }}/../../../scripts/install-sdl3-build-deps.sh"
 
         mkdir -p "$HOME/.liara-toolchain"
