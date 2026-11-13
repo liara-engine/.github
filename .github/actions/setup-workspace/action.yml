@@ -119,7 +119,7 @@ runs:
         esac
         sudo apt-get install -y --no-install-recommends ninja-build mold
         if [ "${{ inputs.vulkan-validation-layers }}" = "true" ]; then
-          sudo apt-get install -y --no-install-recommends vulkan-validation-layers
+          sudo apt-get install -y --no-install-recommends vulkan-validationlayers
         fi
         bash "${{ github.action_path }}/../../../scripts/install-sdl3-build-deps.sh"
 

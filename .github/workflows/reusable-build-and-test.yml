@@ -81,7 +81,7 @@ jobs:
           configure-preset: ${{ matrix.leg.configure }}
           toolchain: ${{ matrix.leg.toolchain }}
           cross-language: ${{ matrix.leg['cross-language'] }}
-          vulkan-validation-layers: ${{ matrix.leg['validation-layers'] }}
+          vulkan-validation-layers: ${{ matrix.leg['vulkan-validation-layers'] }}
           meta-ref: ${{ inputs.meta-ref }}
 
       - if: failure()
